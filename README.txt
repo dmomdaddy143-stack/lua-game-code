@@ -12,6 +12,7 @@ FILES
   tab_visuals.lua   - Visuals tab + player ESP
   tab_misc.lua      - Misc tab + lag spike
   tab_map.lua       - Map/minimap tab + interactables
+  tab_bring.lua     - Bring tab + target, item whitelist, and range controls
   cleanup.lua       - render loops + X button teardown (ALWAYS loads last)
 
 SETUP (GitHub)

@@ -13,7 +13,7 @@ local PhysicsService = UT.PhysicsService
 local player = UT.player
 local camera = UT.camera
 local gui = UT.gui
-local x = UT.closeButton
+local x = UT.closeButton or (UT.frame and (UT.frame:FindFirstChild("CloseButton") or UT.frame:FindFirstChildOfClass("TextButton")))
 local tabFrames = UT.tabFrames
 local notify = UT.notify
 local makeToggle = UT.makeToggle
@@ -31,7 +31,9 @@ UT.espConnection = RunService.RenderStepped:Connect(function()
 	if UT.updateEntityEsp then UT.updateEntityEsp() end
 end)
 
+if x then
 x.MouseButton1Click:Connect(function()
+	if UT.cleanupBring then pcall(UT.cleanupBring) end
 	if UT.espConnection then UT.espConnection:Disconnect() end
 	if UT.statsConn then UT.statsConn:Disconnect() end
 	if UT.cframeSpeedConn then UT.cframeSpeedConn:Disconnect() end
@@ -63,3 +65,4 @@ x.MouseButton1Click:Connect(function()
 	UT.entityDrawings = {}
 	gui:Destroy()
 end)
+end

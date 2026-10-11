@@ -60,6 +60,7 @@ title.Parent = frame
 local x = Instance.new("TextButton")
 x.Size = UDim2.new(0, 28, 0, 28)
 x.Position = UDim2.new(1, -30, 0, 0)
+x.Name = "CloseButton"
 x.Text = "X"
 x.TextColor3 = Color3.fromRGB(255, 60, 60)
 x.BackgroundTransparency = 1
@@ -76,9 +77,10 @@ local tabColors = {
 	Visuals = Color3.fromRGB(180, 0, 255),
 	Misc = Color3.fromRGB(0, 200, 200),
 	Map = Color3.fromRGB(255, 100, 255),
+	Bring = Color3.fromRGB(90, 170, 100),
 }
 
-local tabList = {"Remotes", "Items", "Players", "Move", "Entities", "Visuals", "Misc", "Map"}
+local tabList = {"Remotes", "Items", "Players", "Move", "Entities", "Visuals", "Misc", "Map", "Bring"}
 local tabBtns = {}
 local tabFrames = {}
 local currentTab = "Remotes"
@@ -109,10 +111,12 @@ local function switchTab(name)
 	for n, b in pairs(tabBtns) do b.BackgroundColor3 = (n == name) and tabColors[n] or Color3.fromRGB(35,35,40) end
 end
 
+local tabWidth = 76
+local tabStride = 78
 for i, name in ipairs(tabList) do
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 82, 0, 24)
-	btn.Position = UDim2.new(0, 5 + (i-1)*88, 0, 30)
+	btn.Size = UDim2.new(0, tabWidth, 0, 24)
+	btn.Position = UDim2.new(0, 5 + (i - 1) * tabStride, 0, 30)
 	btn.Text = name
 	btn.TextColor3 = Color3.new(1,1,1)
 	btn.BackgroundColor3 = (name == currentTab) and tabColors[name] or Color3.fromRGB(35, 35, 40)

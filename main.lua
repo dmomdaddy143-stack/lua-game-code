@@ -18,6 +18,7 @@ local FILES = {
 	"tab_visuals.lua",
 	"tab_misc.lua",
 	"tab_map.lua",
+	"tab_bring.lua",
 	"cleanup.lua",
 }
 
