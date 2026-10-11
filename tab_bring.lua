@@ -80,11 +80,12 @@ local trackedParts = {}
 local trackedLookup = {}
 local sourcePositions = {}
 local originalCanCollide = {}
+local originalAnchored = {}
 local connections = {}
 local bringToggle
 
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, 0, 0, 18)
+status.Size = UDim2.new(1, -108, 0, 18)
 status.BackgroundTransparency = 1
 status.Text = "Select a player, choose items, then enable Bring"
 status.TextColor3 = Color3.fromRGB(190, 190, 190)
@@ -92,6 +93,17 @@ status.Font = Enum.Font.Gotham
 status.TextSize = 11
 status.TextXAlignment = Enum.TextXAlignment.Left
 status.Parent = frame
+
+local scanButton = Instance.new("TextButton")
+scanButton.Size = UDim2.new(0, 102, 0, 18)
+scanButton.Position = UDim2.new(1, -102, 0, 0)
+scanButton.Text = "Scan items"
+scanButton.TextColor3 = Color3.new(1, 1, 1)
+scanButton.BackgroundColor3 = Color3.fromRGB(35, 95, 65)
+scanButton.Font = Enum.Font.GothamBold
+scanButton.TextSize = 10
+scanButton.Parent = frame
+Instance.new("UICorner", scanButton).CornerRadius = UDim.new(0, 3)
 
 local playerTitle = Instance.new("TextLabel")
 playerTitle.Size = UDim2.new(0, 220, 0, 18)
@@ -323,6 +335,10 @@ local function cleanupPart(part)
 		pcall(function() part.CanCollide = originalCanCollide[part] end)
 		originalCanCollide[part] = nil
 	end
+	if originalAnchored[part] ~= nil then
+		pcall(function() part.Anchored = originalAnchored[part] end)
+		originalAnchored[part] = nil
+	end
 	pcall(function()
 		part.AssemblyLinearVelocity = Vector3.zero
 		part.AssemblyAngularVelocity = Vector3.zero
@@ -347,10 +363,24 @@ end
 local function trackPart(part, targetPart)
 	if not active then return end
 	local itemName, itemRoot, itemPart = getWhitelistedItem(part)
-	if not itemPart or itemPart.Anchored or trackedLookup[itemPart] then return end
+	if not itemPart or trackedLookup[itemPart] then return end
 	if not isInRange(itemPart, targetPart) then return end
 	local sourcePosition = itemPart.Position
+	local modelParts = {itemPart}
+	if not itemRoot:IsA("BasePart") then
+		for _, descendant in ipairs(itemRoot:GetDescendants()) do
+			if descendant:IsA("BasePart") and descendant ~= itemPart then
+				table.insert(modelParts, descendant)
+			end
+		end
+	end
 	local ok = pcall(function()
+		for _, modelPart in ipairs(modelParts) do
+			if originalAnchored[modelPart] == nil then
+				originalAnchored[modelPart] = modelPart.Anchored
+			end
+			modelPart.Anchored = false
+		end
 		local attachment = Instance.new("Attachment")
 		attachment.Name = "BringAttachment"
 		attachment.Parent = itemPart
@@ -380,6 +410,15 @@ local function trackPart(part, targetPart)
 		trackedLookup[itemPart] = true
 		sourcePositions[itemPart] = sourcePosition
 		table.insert(trackedParts, itemPart)
+	else
+		cleanupPart(itemPart)
+		for _, modelPart in ipairs(modelParts) do
+			local wasAnchored = originalAnchored[modelPart]
+			if wasAnchored ~= nil then
+				pcall(function() modelPart.Anchored = wasAnchored end)
+				originalAnchored[modelPart] = nil
+			end
+		end
 	end
 end
 
@@ -391,6 +430,10 @@ local function stopBring()
 	end
 	for index = #trackedParts, 1, -1 do
 		untrackPart(index)
+	end
+	for part, wasAnchored in pairs(originalAnchored) do
+		if part.Parent then pcall(function() part.Anchored = wasAnchored end) end
+		originalAnchored[part] = nil
 	end
 	if attachmentPart and attachmentPart.Parent then
 		attachmentPart.CFrame = CFrame.new(0, -1000, 0)
@@ -418,6 +461,12 @@ local function startBring()
 
 	for _, descendant in ipairs(Workspace:GetDescendants()) do
 		trackPart(descendant, targetPart)
+	end
+	if #trackedParts == 0 then
+		stopBring()
+		if bringToggle then UT.setButtonToggle(bringToggle, false) end
+		status.Text = "ERROR: No enabled detected items in range. Run Scan items or enable an item type."
+		return
 	end
 	connections.heartbeat = RunService.Heartbeat:Connect(function()
 		local currentTarget = getTargetPart()
@@ -479,18 +528,54 @@ local function discoverItem(instance)
 	if active then trackPart(instance, getTargetPart()) end
 end
 
+local scanning = false
+local function scanWorldItems()
+	if scanning then return end
+	scanning = true
+	if active then
+		stopBring()
+		if bringToggle then UT.setButtonToggle(bringToggle, false) end
+	end
+	scanButton.Text = "Scanning..."
+	status.Text = "Scanning the map for supported items..."
+	for itemName, button in pairs(itemButtons) do
+		button:Destroy()
+		itemButtons[itemName] = nil
+		whitelist[itemName] = nil
+	end
+	for root in pairs(itemCatalog) do itemCatalog[root] = nil end
+	for itemName in pairs(itemCounts) do itemCounts[itemName] = nil end
+
+	local descendants = Workspace:GetDescendants()
+	for index, descendant in ipairs(descendants) do
+		registerItem(descendant)
+		if index % 1000 == 0 then task.wait() end
+	end
+
+	local instanceCount = 0
+	for _ in pairs(itemCatalog) do instanceCount = instanceCount + 1 end
+	local typeCount = 0
+	for _ in pairs(itemButtons) do typeCount = typeCount + 1 end
+	if instanceCount == 0 then
+		status.Text = "ERROR: No supported items found. Add an Item/Pickup tag, IsItem attribute, Tool, prompt, or item folder."
+	else
+		status.Text = "Found " .. tostring(instanceCount) .. " items across " .. tostring(typeCount) .. " types"
+	end
+	scanButton.Text = "Scan items"
+	scanning = false
+end
+
+scanButton.MouseButton1Click:Connect(function()
+	task.spawn(scanWorldItems)
+end)
+
 connections.worldDescendantAdded = Workspace.DescendantAdded:Connect(discoverItem)
 connections.worldDescendantRemoving = Workspace.DescendantRemoving:Connect(unregisterItemsUnder)
 for _, tagName in ipairs({"Item", "Pickup", "Collectible"}) do
 	table.insert(connections, CollectionService:GetInstanceAddedSignal(tagName):Connect(discoverItem))
 end
 
-task.spawn(function()
-	for index, descendant in ipairs(Workspace:GetDescendants()) do
-		discoverItem(descendant)
-		if index % 1000 == 0 then task.wait() end
-	end
-end)
+task.spawn(scanWorldItems)
 
 bringToggle = UT.makeToggle(frame, "Bring Items", 238, function(enabled)
 	if enabled then
