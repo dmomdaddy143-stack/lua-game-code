@@ -5,7 +5,7 @@
 -- 3. Paste THIS whole file into your executor
 -- ============================================================
 
-local BASE_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/"
+local BASE_URL = "https://raw.githubusercontent.com/dmomdaddy143-stack/lua-game-code/main/"
 
 -- Files load IN ORDER - core.lua must always be first
 local FILES = {
