@@ -18,7 +18,7 @@ local whitelist = {
 }
 
 local rangeMin = 10
-local rangeMax = 500
+local rangeMax = 5000
 local range = 100
 local selectedPlayer
 local active = false
@@ -133,7 +133,7 @@ Instance.new("UICorner", sliderKnob).CornerRadius = UDim.new(1, 0)
 
 local function updateSlider(value)
 	local previousRange = range
-	range = math.clamp(math.floor(value / 5 + 0.5) * 5, rangeMin, rangeMax)
+	range = math.clamp(math.floor(value / 25 + 0.5) * 25, rangeMin, rangeMax)
 	if active and range ~= previousRange then rangeScanPending = true end
 	local alpha = (range - rangeMin) / (rangeMax - rangeMin)
 	sliderFill.Size = UDim2.new(alpha, 0, 1, 0)

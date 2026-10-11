@@ -275,10 +275,15 @@ noclipSectionHeader.TextSize = 11
 noclipSectionHeader.Parent = mFrame
 Instance.new("UICorner", noclipSectionHeader).CornerRadius = UDim.new(0, 4)
 
-local noclipContainer = Instance.new("Frame")
-noclipContainer.Size = UDim2.new(1, 0, 0, 240)
+local noclipContainer = Instance.new("ScrollingFrame")
+noclipContainer.Size = UDim2.new(1, 0, 0, 230)
 noclipContainer.Position = UDim2.new(0, 0, 0, 266)
 noclipContainer.BackgroundTransparency = 1
+noclipContainer.BorderSizePixel = 0
+noclipContainer.ScrollBarThickness = 5
+noclipContainer.ScrollingDirection = Enum.ScrollingDirection.Y
+noclipContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+noclipContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 noclipContainer.Visible = false
 noclipContainer.Parent = mFrame
 
@@ -291,7 +296,8 @@ local noclipBtns = {}
 for idx, name in ipairs(noclipMethods) do
 	local ncol = (idx - 1) % 3
 	local nrow = math.floor((idx - 1) / 3)
-	local btn = makeToggle(noclipContainer, name, 0, function(enabled)
+	local btn
+	btn = makeToggle(noclipContainer, name, 0, function(enabled)
 		if enabled then
 			-- Visually reset all other noclip toggles
 			for i2, other in ipairs(noclipBtns) do
