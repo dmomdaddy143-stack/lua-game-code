@@ -138,8 +138,8 @@ local tabForModule = {
 
 -- Low Lag Mode: scans yield across frames + capped results
 -- Potato Mode: stacks on top of Low Lag Mode, tiny scans + near-only
-UT.lowLagMode = false
-UT.potatoMode = false
+UT.lowLagMode = UT.lowLagMode == true
+UT.potatoMode = UT.potatoMode == true
 local LL_REMOTE_CAP = 250
 local LL_ITEM_CAP = 250
 local LL_ENTITY_CAP = 200

@@ -23,6 +23,8 @@ SETUP (GitHub)
      with your real raw URL, e.g.:
         https://raw.githubusercontent.com/cooluser/coolscripts/main/
   4. Paste main.lua into your executor and run it.
+    5. During module loading, press Shift+X to choose tabs. Test mode loads one selected tab;
+      Potato mode enables reduced scan caps and yields for lower startup load.
 
 HOW IT WORKS
   - main.lua loads each file IN ORDER and hands it a shared table (UT).
