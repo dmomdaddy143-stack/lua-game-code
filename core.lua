@@ -140,6 +140,7 @@ local function notify(t, m)
 end
 
 local toggleRegistry = {}
+local toggleSetters = {}
 
 local function makeToggle(parent, text, y, callback, size, pos)
 	local btn = Instance.new("TextButton")
@@ -151,25 +152,32 @@ local function makeToggle(parent, text, y, callback, size, pos)
 	btn.Parent = parent
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
 	local state = {enabled = false}
-	function btn:SetToggle(on)
+	local function setToggle(on)
 		state.enabled = on
 		btn.Text = text .. (on and ": ON" or ": OFF")
 		btn.TextColor3 = on and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
 	end
-	btn:SetToggle(false)
+	toggleSetters[btn] = setToggle
+	setToggle(false)
 	btn.MouseButton1Click:Connect(function()
-		btn:SetToggle(not state.enabled)
+		setToggle(not state.enabled)
 		callback(state.enabled)
 	end)
 	toggleRegistry[btn] = {state = state, callback = callback}
 	return btn
 end
 
+local function setButtonToggle(btn, on)
+	local setter = toggleSetters[btn]
+	if setter then
+		setter(on)
+	end
+end
+
 local function resetAllToggles()
 	for btn, entry in pairs(toggleRegistry) do
 		if entry.state.enabled then
-			entry.state.enabled = false
-			btn:SetToggle(false)
+			setButtonToggle(btn, false)
 			pcall(entry.callback, false)
 		end
 	end
@@ -357,6 +365,7 @@ UT.tabColors = tabColors
 UT.drawingSupported = drawingSupported
 UT.notify = notify
 UT.makeToggle = makeToggle
+UT.setButtonToggle = setButtonToggle
 UT.makeDropdown = makeDropdown
 UT.resetAllToggles = resetAllToggles
 UT.switchTab = switchTab

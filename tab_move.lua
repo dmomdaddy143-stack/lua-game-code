@@ -295,7 +295,9 @@ for idx, name in ipairs(noclipMethods) do
 		if enabled then
 			-- Visually reset all other noclip toggles
 			for i2, other in ipairs(noclipBtns) do
-				if other ~= btn then other:SetToggle(false) end
+				if other ~= btn then
+					UT.setButtonToggle(other, false)
+				end
 			end
 			clearNoclip()
 
