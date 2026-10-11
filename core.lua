@@ -357,6 +357,7 @@ UT.PhysicsService = PhysicsService
 UT.player = player
 UT.camera = camera
 UT.gui = gui
+UT.closeButton = x
 UT.frame = frame
 UT.tabFrames = tabFrames
 UT.tabBtns = tabBtns

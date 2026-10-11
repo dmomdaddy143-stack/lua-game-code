@@ -13,6 +13,7 @@ local PhysicsService = UT.PhysicsService
 local player = UT.player
 local camera = UT.camera
 local gui = UT.gui
+local x = UT.closeButton
 local tabFrames = UT.tabFrames
 local notify = UT.notify
 local makeToggle = UT.makeToggle
