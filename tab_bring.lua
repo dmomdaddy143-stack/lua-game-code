@@ -87,7 +87,7 @@ local bringToggle
 local status = Instance.new("TextLabel")
 status.Size = UDim2.new(1, -108, 0, 18)
 status.BackgroundTransparency = 1
-status.Text = "Select a player, choose items, then enable Bring"
+status.Text = "Select a player and scan items to begin"
 status.TextColor3 = Color3.fromRGB(190, 190, 190)
 status.Font = Enum.Font.Gotham
 status.TextSize = 11
@@ -459,8 +459,8 @@ local function startBring()
 		end
 	end)
 
-	for _, descendant in ipairs(Workspace:GetDescendants()) do
-		trackPart(descendant, targetPart)
+	for root in pairs(itemCatalog) do
+		trackPart(root, targetPart)
 	end
 	if #trackedParts == 0 then
 		stopBring()
@@ -484,8 +484,8 @@ local function startBring()
 		end
 		if rangeScanPending and not draggingSlider then
 			rangeScanPending = false
-			for _, descendant in ipairs(Workspace:GetDescendants()) do
-				trackPart(descendant, currentTarget)
+			for root in pairs(itemCatalog) do
+				trackPart(root, currentTarget)
 			end
 		end
 	end)
@@ -574,8 +574,6 @@ connections.worldDescendantRemoving = Workspace.DescendantRemoving:Connect(unreg
 for _, tagName in ipairs({"Item", "Pickup", "Collectible"}) do
 	table.insert(connections, CollectionService:GetInstanceAddedSignal(tagName):Connect(discoverItem))
 end
-
-task.spawn(scanWorldItems)
 
 bringToggle = UT.makeToggle(frame, "Bring Items", 238, function(enabled)
 	if enabled then
