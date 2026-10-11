@@ -122,6 +122,19 @@ local tabList = {"Remotes", "Items", "Players", "Move", "Entities", "Visuals", "
 local tabBtns = {}
 local tabFrames = {}
 local currentTab = "Remotes"
+local loadedTabs = {}
+local categoryDropdown
+local tabForModule = {
+	["tab_remotes.lua"] = "Remotes",
+	["tab_items.lua"] = "Items",
+	["tab_players.lua"] = "Players",
+	["tab_move.lua"] = "Move",
+	["tab_entities.lua"] = "Entities",
+	["tab_visuals.lua"] = "Visuals",
+	["tab_misc.lua"] = "Misc",
+	["tab_map.lua"] = "Map",
+	["tab_bring.lua"] = "Bring",
+}
 
 -- Low Lag Mode: scans yield across frames + capped results
 -- Potato Mode: stacks on top of Low Lag Mode, tiny scans + near-only
@@ -144,6 +157,7 @@ local function llCap(n)
 end
 
 local function switchTab(name)
+	if not loadedTabs[name] then return end
 	currentTab = name
 	for n, c in pairs(tabFrames) do c.Visible = (n == name) end
 	for n, b in pairs(tabBtns) do b.BackgroundColor3 = (n == name) and tabColors[n] or Color3.fromRGB(35,35,40) end
@@ -160,6 +174,7 @@ for i, name in ipairs(tabList) do
 	btn.BackgroundColor3 = (name == currentTab) and tabColors[name] or Color3.fromRGB(35, 35, 40)
 	btn.Font = Enum.Font.GothamBold
 	btn.TextSize = 11
+	btn.Visible = false
 	btn.Parent = frame
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
 	tabBtns[name] = btn
@@ -167,12 +182,83 @@ for i, name in ipairs(tabList) do
 	cont.Size = UDim2.new(1, -10, 1, -64)
 	cont.Position = UDim2.new(0, 5, 0, 58)
 	cont.BackgroundTransparency = 1
-	cont.Visible = (name == currentTab)
+	cont.Visible = false
 	cont.Parent = frame
 	tabFrames[name] = cont
 	btn.MouseButton1Click:Connect(function()
 		switchTab(name)
 	end)
+end
+
+local loadingPanel = Instance.new("Frame")
+loadingPanel.Size = UDim2.new(1, -10, 1, -64)
+loadingPanel.Position = UDim2.new(0, 5, 0, 58)
+loadingPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
+loadingPanel.BorderSizePixel = 0
+loadingPanel.ZIndex = 100
+loadingPanel.Parent = frame
+
+local loadingLabel = Instance.new("TextLabel")
+loadingLabel.Size = UDim2.new(1, -24, 0, 36)
+loadingLabel.Position = UDim2.new(0, 12, 0.5, -28)
+loadingLabel.BackgroundTransparency = 1
+loadingLabel.Text = "Preparing modules..."
+loadingLabel.TextColor3 = Color3.fromRGB(225, 225, 225)
+loadingLabel.Font = Enum.Font.GothamBold
+loadingLabel.TextSize = 14
+loadingLabel.ZIndex = 101
+loadingLabel.Parent = loadingPanel
+
+local loadingTrack = Instance.new("Frame")
+loadingTrack.Size = UDim2.new(1, -48, 0, 8)
+loadingTrack.Position = UDim2.new(0, 24, 0.5, 18)
+loadingTrack.BackgroundColor3 = Color3.fromRGB(42, 42, 46)
+loadingTrack.BorderSizePixel = 0
+loadingTrack.ZIndex = 101
+loadingTrack.Parent = loadingPanel
+Instance.new("UICorner", loadingTrack).CornerRadius = UDim.new(0, 4)
+
+local loadingFill = Instance.new("Frame")
+loadingFill.Size = UDim2.new(0, 0, 1, 0)
+loadingFill.BackgroundColor3 = Color3.fromRGB(0, 200, 120)
+loadingFill.BorderSizePixel = 0
+loadingFill.ZIndex = 102
+loadingFill.Parent = loadingTrack
+Instance.new("UICorner", loadingFill).CornerRadius = UDim.new(0, 4)
+
+UT.setLoadProgress = function(name, index, total)
+	local tabName = tabForModule[name] or name
+	loadingLabel.Text = "Loading " .. tabName .. " (" .. tostring(index) .. "/" .. tostring(total) .. ")..."
+	loadingLabel.TextColor3 = Color3.fromRGB(225, 225, 225)
+	loadingFill.Size = UDim2.new((index - 1) / total, 0, 1, 0)
+	loadingPanel.Visible = true
+end
+
+UT.markModuleLoaded = function(name, index, total)
+	local tabName = tabForModule[name]
+	if tabName and tabBtns[tabName] then
+		loadedTabs[tabName] = true
+		tabBtns[tabName].Visible = true
+		if not currentTab or not loadedTabs[currentTab] then
+			currentTab = tabName
+		end
+		tabFrames[tabName].Visible = (tabName == currentTab)
+	end
+	loadingLabel.Text = "Loaded " .. (tabName or name)
+	loadingFill.Size = UDim2.new(index / total, 0, 1, 0)
+end
+
+UT.failModuleLoad = function(name, err)
+	loadingLabel.Text = "Failed loading " .. (tabForModule[name] or name) .. ": " .. tostring(err)
+	loadingLabel.TextColor3 = Color3.fromRGB(255, 110, 100)
+	loadingPanel.Visible = true
+end
+
+UT.finishModuleLoading = function()
+	loadingPanel.Visible = false
+	if loadedTabs[currentTab] then
+		tabFrames[currentTab].Visible = true
+	end
 end
 
 local function notify(t, m)
@@ -336,10 +422,11 @@ end
 -- Synced with the tab buttons - picking one updates the other
 -- ============================================
 local ddOk, ddErr = pcall(function()
-	makeDropdown(frame, "Category", tabList, currentTab, function(name)
+	categoryDropdown = makeDropdown(frame, "Category", tabList, currentTab, function(name)
 		switchTab(name)
 	end, UDim2.new(0, 132, 0, 22), UDim2.new(1, -166, 0, 3))
 end)
+if categoryDropdown then categoryDropdown.Visible = false end
 if not ddOk then
 	notify("Dropdown Error", tostring(ddErr))
 end
@@ -354,6 +441,151 @@ local function isInChar(obj)
 	if p:FindFirstChildOfClass("Humanoid") and p:FindFirstChild("HumanoidRootPart") then return true end
 	return false
 end
+
+local function isPlayerModel(obj)
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character == obj then return true end
+	end
+	return false
+end
+
+local function isPlayerRelated(obj)
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character and (obj:IsDescendantOf(p.Character) or obj == p.Character) then
+			return true
+		end
+	end
+	return false
+end
+
+local function getEntityPrimaryPart(model)
+	if not model then return nil end
+	if model:IsA("BasePart") then return model end
+	local primary = model:FindFirstChild("HumanoidRootPart")
+		or model:FindFirstChild("Torso")
+		or model:FindFirstChild("UpperTorso")
+		or model:FindFirstChild("Hitbox")
+		or model:FindFirstChild("Hurtbox")
+		or model:FindFirstChild("RootPart")
+		or model:FindFirstChild("Root")
+	if primary and primary:IsA("BasePart") then return primary end
+	return model:FindFirstChildWhichIsA("BasePart")
+end
+
+-- ============================================
+-- EXPORTS (tab files access these through UT)
+-- ============================================
+UT.Players = Players
+UT.RunService = RunService
+UT.UserInputService = UserInputService
+UT.Lighting = Lighting
+UT.TeleportService = TeleportService
+UT.HttpService = HttpService
+UT.TweenService = TweenService
+UT.PhysicsService = PhysicsService
+UT.player = player
+UT.camera = camera
+UT.gui = gui
+UT.minimizeButton = minimizeButton
+UT.updateButton = updateButton
+UT.closeButton = x
+UT.frame = frame
+UT.tabFrames = tabFrames
+UT.tabBtns = tabBtns
+UT.tabList = tabList
+UT.tabColors = tabColors
+UT.drawingSupported = drawingSupported
+UT.notify = notify
+UT.makeToggle = makeToggle
+UT.setButtonToggle = setButtonToggle
+UT.makeDropdown = makeDropdown
+UT.resetAllToggles = resetAllToggles
+UT.switchTab = switchTab
+UT.lagYield = lagYield
+UT.llYieldStep = llYieldStep
+UT.llBtnStep = llBtnStep
+UT.llCap = llCap
+UT.isInChar = isInChar
+UT.isPlayerModel = isPlayerModel
+UT.isPlayerRelated = isPlayerRelated
+UT.getEntityPrimaryPart = getEntityPrimaryPart
+-- ============================================
+-- SHARED ENTITY/ITEM HELPERS (used by Items, Entities, Map tabs)
+-- ============================================
+local function isInChar(obj)
+	if not obj or not obj.Parent then return false end
+	local p = obj.Parent
+	if p:FindFirstChildOfClass("Humanoid") and p:FindFirstChild("HumanoidRootPart") then return true end
+	return false
+end
+
+local function isPlayerModel(obj)
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character == obj then return true end
+	end
+	return false
+end
+
+local function isPlayerRelated(obj)
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character and (obj:IsDescendantOf(p.Character) or obj == p.Character) then
+			return true
+		end
+	end
+	return false
+end
+
+local function getEntityPrimaryPart(model)
+	if not model then return nil end
+	if model:IsA("BasePart") then return model end
+	local primary = model:FindFirstChild("HumanoidRootPart")
+		or model:FindFirstChild("Torso")
+		or model:FindFirstChild("UpperTorso")
+		or model:FindFirstChild("Hitbox")
+		or model:FindFirstChild("Hurtbox")
+		or model:FindFirstChild("RootPart")
+		or model:FindFirstChild("Root")
+	if primary and primary:IsA("BasePart") then return primary end
+	return model:FindFirstChildWhichIsA("BasePart")
+end
+
+-- ============================================
+-- EXPORTS (tab files access these through UT)
+-- ============================================
+UT.Players = Players
+UT.RunService = RunService
+UT.UserInputService = UserInputService
+UT.Lighting = Lighting
+UT.TeleportService = TeleportService
+UT.HttpService = HttpService
+UT.TweenService = TweenService
+UT.PhysicsService = PhysicsService
+UT.player = player
+UT.camera = camera
+UT.gui = gui
+UT.minimizeButton = minimizeButton
+UT.updateButton = updateButton
+UT.closeButton = x
+UT.frame = frame
+UT.tabFrames = tabFrames
+UT.tabBtns = tabBtns
+UT.tabList = tabList
+UT.tabColors = tabColors
+UT.drawingSupported = drawingSupported
+UT.notify = notify
+UT.makeToggle = makeToggle
+UT.setButtonToggle = setButtonToggle
+UT.makeDropdown = makeDropdown
+UT.resetAllToggles = resetAllToggles
+UT.switchTab = switchTab
+UT.lagYield = lagYield
+UT.llYieldStep = llYieldStep
+UT.llBtnStep = llBtnStep
+UT.llCap = llCap
+UT.isInChar = isInChar
+UT.isPlayerModel = isPlayerModel
+UT.isPlayerRelated = isPlayerRelated
+UT.getEntityPrimaryPart = getEntityPrimaryPart
 
 local function isPlayerModel(obj)
 	for _, p in ipairs(Players:GetPlayers()) do

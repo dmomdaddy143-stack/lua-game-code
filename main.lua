@@ -79,7 +79,13 @@ end
 
 notify("Ultimate Toolkit", "Loading " .. tostring(#FILES) .. " modules...")
 
-for _, name in ipairs(FILES) do
+for index, name in ipairs(FILES) do
+	if UT.setLoadProgress then
+		UT.setLoadProgress(name, index, #FILES)
+	else
+		notify("Loading", name .. " (" .. tostring(index) .. "/" .. tostring(#FILES) .. ")")
+	end
+	task.wait()
 	local ok, err = pcall(function()
 		local src = fetchSource(name)
 		local chunk, loadErr = loadstring(src, name)
@@ -89,10 +95,14 @@ for _, name in ipairs(FILES) do
 		chunk(UT)
 	end)
 	if not ok then
+		if UT.failModuleLoad then UT.failModuleLoad(name, err) end
 		notify("Load Failed: " .. name, tostring(err))
 		error("UltimateToolkit failed at " .. name .. ": " .. tostring(err))
 	end
+	if UT.markModuleLoaded then UT.markModuleLoaded(name, index, #FILES) end
+	task.wait()
 end
 
 loaderReady = true
+if UT.finishModuleLoading then UT.finishModuleLoading() end
 notify("Ultimate Toolkit", "All modules loaded!")
