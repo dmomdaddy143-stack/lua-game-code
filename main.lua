@@ -31,11 +31,17 @@ local function notify(t, m)
 end
 
 local function fetchSource(name)
-	-- local-file fallback for executors that support it (same folder as this script)
-	if isfile and pcall(isfile, name) and isfile(name) then
+	local ok, source = pcall(function()
+		return game:HttpGet(BASE_URL .. name)
+	end)
+	if ok and type(source) == "string" and #source > 0 then
+		return source
+	end
+	-- Fall back to local modules only when GitHub cannot be reached.
+	if isfile and readfile and pcall(isfile, name) and isfile(name) then
 		return readfile(name)
 	end
-	return game:HttpGet(BASE_URL .. name)
+	error(source or ("Unable to fetch " .. name))
 end
 
 notify("Ultimate Toolkit", "Loading " .. tostring(#FILES) .. " modules...")
