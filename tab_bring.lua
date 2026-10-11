@@ -5,6 +5,7 @@ local UT = ...
 local Players = UT.Players
 local RunService = UT.RunService
 local UserInputService = UT.UserInputService
+local CollectionService = game:GetService("CollectionService")
 local Workspace = workspace
 local player = UT.player
 local frame = UT.tabFrames.Bring
@@ -16,6 +17,50 @@ local whitelist = {
 	Handgun = true, Money = true, Soda = true, Rocket = true,
 	["Rocket Launcher"] = true, ["Pillar Hammer"] = true,
 }
+local itemButtons = {}
+
+local function hasItemMarker(instance)
+	if instance:IsA("Tool") or instance:GetAttribute("IsItem") == true or instance:GetAttribute("IsPickup") == true then
+		return true
+	end
+	return CollectionService:HasTag(instance, "Item")
+		or CollectionService:HasTag(instance, "Pickup")
+		or CollectionService:HasTag(instance, "Collectible")
+end
+
+local function findItemRoot(instance)
+	local cursor = instance
+	local interactiveRoot
+	while cursor and cursor ~= Workspace do
+		if hasItemMarker(cursor) then return cursor end
+		local hasPrompt = cursor:FindFirstChildWhichIsA("ProximityPrompt", true)
+		local hasClickDetector = cursor:FindFirstChildWhichIsA("ClickDetector", true)
+		if (cursor:IsA("Model") or cursor:IsA("BasePart")) and (hasPrompt or hasClickDetector) then
+			interactiveRoot = cursor
+		end
+		cursor = cursor.Parent
+	end
+	if interactiveRoot then return interactiveRoot end
+	if instance:IsA("BasePart") and whitelist[instance.Name] then return instance end
+	return nil
+end
+
+local function getItemPart(root)
+	if root:IsA("BasePart") then return root end
+	if root:IsA("Model") and root.PrimaryPart then return root.PrimaryPart end
+	local handle = root:FindFirstChild("Handle")
+	if handle and handle:IsA("BasePart") then return handle end
+	return root:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function getItemInfo(instance)
+	if instance:IsA("BasePart") and whitelist[instance.Name] then
+		return instance.Name, instance
+	end
+	local root = findItemRoot(instance)
+	if root then return root.Name, root end
+	return nil
+end
 
 local rangeMin = 10
 local rangeMax = 5000
@@ -94,6 +139,28 @@ itemLayout.CellSize = UDim2.new(0.5, -3, 0, 24)
 itemLayout.CellPadding = UDim2.new(0, 4, 0, 3)
 itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
 itemLayout.Parent = itemList
+
+local function addItemOption(itemName)
+	if whitelist[itemName] == nil then whitelist[itemName] = true end
+	if itemButtons[itemName] then return end
+	local button = Instance.new("TextButton")
+	button.BackgroundColor3 = whitelist[itemName] and Color3.fromRGB(0, 135, 85) or Color3.fromRGB(55, 55, 62)
+	button.Text = itemName
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Font = Enum.Font.Gotham
+	button.TextSize = 10
+	button.Parent = itemList
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 3)
+	itemButtons[itemName] = button
+	local detectedCount = 0
+	for _ in pairs(itemButtons) do detectedCount = detectedCount + 1 end
+	whitelistTitle.Text = "Item filters (types: " .. tostring(detectedCount) .. ")"
+	button.MouseButton1Click:Connect(function()
+		whitelist[itemName] = not whitelist[itemName]
+		button.BackgroundColor3 = whitelist[itemName] and Color3.fromRGB(0, 135, 85) or Color3.fromRGB(55, 55, 62)
+		if active and whitelist[itemName] then rangeScanPending = true end
+	end)
+end
 
 local rangeLabel = Instance.new("TextLabel")
 rangeLabel.Size = UDim2.new(1, 0, 0, 18)
@@ -184,8 +251,12 @@ local function getTargetPart()
 		or character:FindFirstChild("Torso"))
 end
 
-local function isWhitelisted(part)
-	return part and part:IsA("BasePart") and whitelist[part.Name] == true
+local function getWhitelistedItem(instance)
+	local itemName, root = getItemInfo(instance)
+	if not itemName or not whitelist[itemName] then return nil end
+	local part = getItemPart(root)
+	if not part then return nil end
+	return itemName, root, part
 end
 
 local function cleanupPart(part)
@@ -220,13 +291,15 @@ local function isInRange(part, targetPart, sourcePosition)
 end
 
 local function trackPart(part, targetPart)
-	if not active or not isWhitelisted(part) or part.Anchored or trackedLookup[part] then return end
-	if not isInRange(part, targetPart) then return end
-	local sourcePosition = part.Position
+	if not active then return end
+	local itemName, itemRoot, itemPart = getWhitelistedItem(part)
+	if not itemPart or itemPart.Anchored or trackedLookup[itemPart] then return end
+	if not isInRange(itemPart, targetPart) then return end
+	local sourcePosition = itemPart.Position
 	local ok = pcall(function()
 		local attachment = Instance.new("Attachment")
 		attachment.Name = "BringAttachment"
-		attachment.Parent = part
+		attachment.Parent = itemPart
 
 		local alignPosition = Instance.new("AlignPosition")
 		alignPosition.Name = "BringAlignPosition"
@@ -235,7 +308,7 @@ local function trackPart(part, targetPart)
 		alignPosition.MaxForce = 100000
 		alignPosition.Responsiveness = 200
 		alignPosition.ReactionForceEnabled = false
-		alignPosition.Parent = part
+		alignPosition.Parent = itemPart
 
 		local alignOrientation = Instance.new("AlignOrientation")
 		alignOrientation.Name = "BringAlignOrientation"
@@ -244,26 +317,23 @@ local function trackPart(part, targetPart)
 		alignOrientation.MaxTorque = 100000
 		alignOrientation.Responsiveness = 200
 		alignOrientation.ReactionTorqueEnabled = false
-		alignOrientation.Parent = part
+		alignOrientation.Parent = itemPart
 
-		originalCanCollide[part] = part.CanCollide
-		part.CanCollide = false
+		originalCanCollide[itemPart] = itemPart.CanCollide
+		itemPart.CanCollide = false
 	end)
 	if ok then
-		trackedLookup[part] = true
-		sourcePositions[part] = sourcePosition
-		table.insert(trackedParts, part)
+		trackedLookup[itemPart] = true
+		sourcePositions[itemPart] = sourcePosition
+		table.insert(trackedParts, itemPart)
 	end
 end
 
 local function stopBring()
 	active = false
-	for _, connectionName in ipairs({"heartbeat", "descendantAdded"}) do
-		local connection = connections[connectionName]
-		if connection then
-			connection:Disconnect()
-			connections[connectionName] = nil
-		end
+	if connections.heartbeat then
+		connections.heartbeat:Disconnect()
+		connections.heartbeat = nil
 	end
 	for index = #trackedParts, 1, -1 do
 		untrackPart(index)
@@ -295,9 +365,6 @@ local function startBring()
 	for _, descendant in ipairs(Workspace:GetDescendants()) do
 		trackPart(descendant, targetPart)
 	end
-	connections.descendantAdded = Workspace.DescendantAdded:Connect(function(descendant)
-		trackPart(descendant, getTargetPart())
-	end)
 	connections.heartbeat = RunService.Heartbeat:Connect(function()
 		local currentTarget = getTargetPart()
 		if not currentTarget then
@@ -308,7 +375,7 @@ local function startBring()
 		attachmentPart.CFrame = currentTarget.CFrame
 		for index = #trackedParts, 1, -1 do
 			local part = trackedParts[index]
-			if not part.Parent or not isWhitelisted(part) or not isInRange(part, currentTarget, sourcePositions[part]) then
+			if not part.Parent or not getWhitelistedItem(part) or not isInRange(part, currentTarget, sourcePositions[part]) then
 				untrackPart(index)
 			end
 		end
@@ -359,27 +426,26 @@ local itemOrder = {
 }
 
 for _, itemName in ipairs(itemOrder) do
-	local button = Instance.new("TextButton")
-	button.BackgroundColor3 = whitelist[itemName] and Color3.fromRGB(0, 135, 85) or Color3.fromRGB(55, 55, 62)
-	button.Text = itemName
-	button.TextColor3 = Color3.new(1, 1, 1)
-	button.Font = Enum.Font.Gotham
-	button.TextSize = 10
-	button.Parent = itemList
-	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 3)
-	button.MouseButton1Click:Connect(function()
-		whitelist[itemName] = not whitelist[itemName]
-		button.BackgroundColor3 = whitelist[itemName] and Color3.fromRGB(0, 135, 85) or Color3.fromRGB(55, 55, 62)
-		if active and whitelist[itemName] then
-			local targetPart = getTargetPart()
-			if targetPart then
-				for _, descendant in ipairs(Workspace:GetDescendants()) do
-					if descendant.Name == itemName then trackPart(descendant, targetPart) end
-				end
-			end
-		end
-	end)
+	addItemOption(itemName)
 end
+
+local function discoverItem(instance)
+	local itemName = getItemInfo(instance)
+	if itemName then addItemOption(itemName) end
+	if active then trackPart(instance, getTargetPart()) end
+end
+
+connections.worldDescendantAdded = Workspace.DescendantAdded:Connect(discoverItem)
+for _, tagName in ipairs({"Item", "Pickup", "Collectible"}) do
+	table.insert(connections, CollectionService:GetInstanceAddedSignal(tagName):Connect(discoverItem))
+end
+
+task.spawn(function()
+	for index, descendant in ipairs(Workspace:GetDescendants()) do
+		discoverItem(descendant)
+		if index % 1000 == 0 then task.wait() end
+	end
+end)
 
 bringToggle = UT.makeToggle(frame, "Bring Items", 238, function(enabled)
 	if enabled then
@@ -403,7 +469,7 @@ refreshPlayers()
 
 UT.cleanupBring = function()
 	stopBring()
-	for _, connection in ipairs(connections) do
+	for _, connection in pairs(connections) do
 		if typeof(connection) == "RBXScriptConnection" then connection:Disconnect() end
 	end
 	connections = {}
