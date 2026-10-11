@@ -23,6 +23,8 @@ local FILES = {
 }
 
 local UT = {}
+local CACHE_BUSTER = tostring(os.time()) .. "-" .. tostring(math.random(1, 1000000000))
+local loaderReady = false
 
 local function notify(t, m)
 	pcall(function()
@@ -32,7 +34,7 @@ end
 
 local function fetchSource(name)
 	local ok, source = pcall(function()
-		return game:HttpGet(BASE_URL .. name)
+		return game:HttpGet(BASE_URL .. name .. "?v=" .. CACHE_BUSTER)
 	end)
 	if ok and type(source) == "string" and #source > 0 then
 		return source
@@ -42,6 +44,37 @@ local function fetchSource(name)
 		return readfile(name)
 	end
 	error(source or ("Unable to fetch " .. name))
+end
+
+UT.updateToolkit = function()
+	if not loaderReady then
+		notify("Update", "Wait for the toolkit to finish loading")
+		return
+	end
+	local ok, source = pcall(function()
+		local version = tostring(os.time()) .. "-" .. tostring(math.random(1, 1000000000))
+		return game:HttpGet(BASE_URL .. "main.lua?update=" .. version)
+	end)
+	if not ok or type(source) ~= "string" or #source == 0 then
+		notify("Update Failed", tostring(source or "Could not fetch the latest loader"))
+		return
+	end
+
+	local chunk, loadErr = loadstring(source, "main.lua")
+	if not chunk then
+		notify("Update Failed", tostring(loadErr))
+		return
+	end
+
+	if UT.shutdown then
+		pcall(UT.shutdown)
+	elseif UT.gui then
+		UT.gui:Destroy()
+	end
+	task.spawn(function()
+		local started, startErr = pcall(chunk)
+		if not started then notify("Update Failed", tostring(startErr)) end
+	end)
 end
 
 notify("Ultimate Toolkit", "Loading " .. tostring(#FILES) .. " modules...")
@@ -61,4 +94,5 @@ for _, name in ipairs(FILES) do
 	end
 end
 
+loaderReady = true
 notify("Ultimate Toolkit", "All modules loaded!")

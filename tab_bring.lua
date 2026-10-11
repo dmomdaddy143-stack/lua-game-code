@@ -11,13 +11,10 @@ local player = UT.player
 local frame = UT.tabFrames.Bring
 local notify = UT.notify
 
-local whitelist = {
-	Food = true, Medkit = true, Bat = true, Crowbar = true, Bullets = true,
-	Hammer = true, GPS = true, Shells = true, Shotgun = true, Lantern = true,
-	Handgun = true, Money = true, Soda = true, Rocket = true,
-	["Rocket Launcher"] = true, ["Pillar Hammer"] = true,
-}
+local whitelist = {}
 local itemButtons = {}
+local itemCatalog = {}
+local itemCounts = {}
 
 local function hasItemMarker(instance)
 	if instance:IsA("Tool") or instance:GetAttribute("IsItem") == true or instance:GetAttribute("IsPickup") == true then
@@ -28,20 +25,33 @@ local function hasItemMarker(instance)
 		or CollectionService:HasTag(instance, "Collectible")
 end
 
+local function isItemContainerName(name)
+	name = name:lower()
+	for _, marker in ipairs({"item", "pickup", "collectible", "loot", "drop", "resource"}) do
+		if string.find(name, marker, 1, true) then return true end
+	end
+	return false
+end
+
 local function findItemRoot(instance)
 	local cursor = instance
 	local interactiveRoot
 	while cursor and cursor ~= Workspace do
 		if hasItemMarker(cursor) then return cursor end
+		local parentName = cursor.Parent and cursor.Parent.Name
+		if parentName and isItemContainerName(parentName) then
+			if cursor:IsA("Model") or cursor:IsA("BasePart") or cursor:IsA("Tool") then
+				return cursor
+			end
+		end
 		local hasPrompt = cursor:FindFirstChildWhichIsA("ProximityPrompt", true)
 		local hasClickDetector = cursor:FindFirstChildWhichIsA("ClickDetector", true)
 		if (cursor:IsA("Model") or cursor:IsA("BasePart")) and (hasPrompt or hasClickDetector) then
-			interactiveRoot = cursor
+			if not interactiveRoot then interactiveRoot = cursor end
 		end
 		cursor = cursor.Parent
 	end
 	if interactiveRoot then return interactiveRoot end
-	if instance:IsA("BasePart") and whitelist[instance.Name] then return instance end
 	return nil
 end
 
@@ -54,9 +64,6 @@ local function getItemPart(root)
 end
 
 local function getItemInfo(instance)
-	if instance:IsA("BasePart") and whitelist[instance.Name] then
-		return instance.Name, instance
-	end
 	local root = findItemRoot(instance)
 	if root then return root.Name, root end
 	return nil
@@ -116,7 +123,7 @@ local whitelistTitle = Instance.new("TextLabel")
 whitelistTitle.Size = UDim2.new(0, 460, 0, 18)
 whitelistTitle.Position = UDim2.new(0, 235, 0, 22)
 whitelistTitle.BackgroundTransparency = 1
-whitelistTitle.Text = "Items"
+whitelistTitle.Text = "Items detected: 0"
 whitelistTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
 whitelistTitle.Font = Enum.Font.GothamBold
 whitelistTitle.TextSize = 11
@@ -160,6 +167,53 @@ local function addItemOption(itemName)
 		button.BackgroundColor3 = whitelist[itemName] and Color3.fromRGB(0, 135, 85) or Color3.fromRGB(55, 55, 62)
 		if active and whitelist[itemName] then rangeScanPending = true end
 	end)
+end
+
+local function removeItemOption(itemName)
+	if itemCounts[itemName] and itemCounts[itemName] > 0 then return end
+	itemCounts[itemName] = nil
+	whitelist[itemName] = nil
+	local button = itemButtons[itemName]
+	if button then
+		button:Destroy()
+		itemButtons[itemName] = nil
+	end
+	local count = 0
+	for _ in pairs(itemButtons) do count = count + 1 end
+	whitelistTitle.Text = "Items detected: " .. tostring(count)
+end
+
+local function isPlayerOwned(root)
+	for _, target in ipairs(Players:GetPlayers()) do
+		local character = target.Character
+		local backpack = target:FindFirstChildOfClass("Backpack")
+		if (character and (root == character or root:IsDescendantOf(character)))
+			or (backpack and (root == backpack or root:IsDescendantOf(backpack))) then
+			return true
+		end
+	end
+	return false
+end
+
+local function registerItem(instance)
+	local itemName, root = getItemInfo(instance)
+	if not itemName or not root or isPlayerOwned(root) then return end
+	local part = getItemPart(root)
+	if not part then return end
+	if itemCatalog[root] then return end
+	itemCatalog[root] = itemName
+	itemCounts[itemName] = (itemCounts[itemName] or 0) + 1
+	addItemOption(itemName)
+end
+
+local function unregisterItemsUnder(instance)
+	for root, itemName in pairs(itemCatalog) do
+		if root == instance or root:IsDescendantOf(instance) then
+			itemCatalog[root] = nil
+			itemCounts[itemName] = math.max(0, (itemCounts[itemName] or 1) - 1)
+			removeItemOption(itemName)
+		end
+	end
 end
 
 local rangeLabel = Instance.new("TextLabel")
@@ -420,22 +474,13 @@ local function refreshPlayers()
 	end
 end
 
-local itemOrder = {
-	"Food", "Medkit", "Bat", "Crowbar", "Bullets", "Hammer", "GPS", "Shells",
-	"Shotgun", "Lantern", "Handgun", "Money", "Soda", "Rocket", "Rocket Launcher", "Pillar Hammer",
-}
-
-for _, itemName in ipairs(itemOrder) do
-	addItemOption(itemName)
-end
-
 local function discoverItem(instance)
-	local itemName = getItemInfo(instance)
-	if itemName then addItemOption(itemName) end
+	registerItem(instance)
 	if active then trackPart(instance, getTargetPart()) end
 end
 
 connections.worldDescendantAdded = Workspace.DescendantAdded:Connect(discoverItem)
+connections.worldDescendantRemoving = Workspace.DescendantRemoving:Connect(unregisterItemsUnder)
 for _, tagName in ipairs({"Item", "Pickup", "Collectible"}) do
 	table.insert(connections, CollectionService:GetInstanceAddedSignal(tagName):Connect(discoverItem))
 end

@@ -45,11 +45,12 @@ frame.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
+frame.ClipsDescendants = true
 frame.Parent = gui
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -200, 0, 28)
+title.Size = UDim2.new(1, -210, 0, 28)
 title.Text = "Ultimate Toolkit v5++"
 title.TextColor3 = Color3.fromRGB(0, 255, 130)
 title.BackgroundTransparency = 1
@@ -67,6 +68,43 @@ x.BackgroundTransparency = 1
 x.Font = Enum.Font.GothamBold
 x.TextSize = 14
 x.Parent = frame
+
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Name = "MinimizeButton"
+minimizeButton.Size = UDim2.new(0, 28, 0, 28)
+minimizeButton.Position = UDim2.new(1, -62, 0, 0)
+minimizeButton.Text = "-"
+minimizeButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+minimizeButton.BackgroundTransparency = 1
+minimizeButton.Font = Enum.Font.GothamBold
+minimizeButton.TextSize = 18
+minimizeButton.Parent = frame
+
+local updateButton = Instance.new("TextButton")
+updateButton.Name = "UpdateButton"
+updateButton.Size = UDim2.new(0, 54, 0, 22)
+updateButton.Position = UDim2.new(1, -120, 0, 3)
+updateButton.Text = "Update"
+updateButton.TextColor3 = Color3.new(1, 1, 1)
+updateButton.BackgroundColor3 = Color3.fromRGB(30, 100, 65)
+updateButton.Font = Enum.Font.GothamBold
+updateButton.TextSize = 10
+updateButton.Parent = frame
+Instance.new("UICorner", updateButton).CornerRadius = UDim.new(0, 4)
+
+local expandedSize = frame.Size
+local minimized = false
+minimizeButton.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	frame.Size = minimized and UDim2.new(expandedSize.X.Scale, expandedSize.X.Offset, 0, 28) or expandedSize
+	minimizeButton.Text = minimized and "+" or "-"
+end)
+
+updateButton.MouseButton1Click:Connect(function()
+	if UT.updateToolkit then
+		UT.updateToolkit()
+	end
+end)
 
 local tabColors = {
 	Remotes = Color3.fromRGB(180, 30, 30),
@@ -361,6 +399,8 @@ UT.PhysicsService = PhysicsService
 UT.player = player
 UT.camera = camera
 UT.gui = gui
+UT.minimizeButton = minimizeButton
+UT.updateButton = updateButton
 UT.closeButton = x
 UT.frame = frame
 UT.tabFrames = tabFrames

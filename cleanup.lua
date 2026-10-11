@@ -31,8 +31,10 @@ UT.espConnection = RunService.RenderStepped:Connect(function()
 	if UT.updateEntityEsp then UT.updateEntityEsp() end
 end)
 
-if x then
-x.MouseButton1Click:Connect(function()
+local shutDown = false
+UT.shutdown = function()
+	if shutDown then return end
+	shutDown = true
 	if UT.cleanupBring then pcall(UT.cleanupBring) end
 	if UT.espConnection then UT.espConnection:Disconnect() end
 	if UT.statsConn then UT.statsConn:Disconnect() end
@@ -51,18 +53,21 @@ x.MouseButton1Click:Connect(function()
 	UT.lagSpikeOn = false
 	if UT.clearNoclip then UT.clearNoclip() end
 	resetAllToggles()
-	for plr, objs in pairs(UT.drawings) do
+	for plr, objs in pairs(UT.drawings or {}) do
 		for _, obj in pairs(objs) do
 			pcall(function() obj:Remove() end)
 		end
 	end
-	for _, d in pairs(UT.entityDrawings) do
+	for _, d in pairs(UT.entityDrawings or {}) do
 		pcall(function() d.Box:Remove() end)
 		pcall(function() d.Name:Remove() end)
 		pcall(function() d.Tracer:Remove() end)
 	end
 	UT.drawings = {}
 	UT.entityDrawings = {}
-	gui:Destroy()
-end)
+	if gui and gui.Parent then gui:Destroy() end
+end
+
+if x then
+	x.MouseButton1Click:Connect(UT.shutdown)
 end
