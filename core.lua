@@ -85,8 +85,8 @@ local currentTab = "Remotes"
 
 -- Low Lag Mode: scans yield across frames + capped results
 -- Potato Mode: stacks on top of Low Lag Mode, tiny scans + near-only
-UT.UT.lowLagMode = false
-UT.UT.potatoMode = false
+UT.lowLagMode = false
+UT.potatoMode = false
 local LL_REMOTE_CAP = 250
 local LL_ITEM_CAP = 250
 local LL_ENTITY_CAP = 200
