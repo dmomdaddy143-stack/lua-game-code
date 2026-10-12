@@ -340,16 +340,15 @@ local function scanItems()
 	local locations = {workspace, game:GetService("ReplicatedStorage"), game:GetService("ServerStorage"), game:GetService("StarterPack"), game:GetService("StarterGear"), game:GetService("Lighting")}
 	for _, loc in ipairs(locations) do
 		lagYield()
-		local ok, stuff = pcall(function() return loc:GetDescendants() end)
-		if ok then
-			for i, obj in ipairs(stuff) do
-				if UT.lowLagMode and i % llYieldStep() == 0 then RunService.Heartbeat:Wait() end
-				if obj:IsA("Tool") and not isInChar(obj) and not seen[obj] then
+		pcall(function()
+			UT.forEachDescendant(loc, function(obj)
+				if obj:IsA("Tool") and not isInChar(obj) and not seen[obj]
+					and (not UT.safeMode or #found < llCap(LL_ITEM_CAP)) then
 					seen[obj] = true
 					table.insert(found, {tool = obj, where = loc.Name})
 				end
-			end
-		end
+			end)
+		end)
 	end
 	table.sort(found, function(a,b) return a.tool.Name:lower() < b.tool.Name:lower() end)
 	local shown = 0

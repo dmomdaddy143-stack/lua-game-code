@@ -15,6 +15,7 @@ local whitelist = {}
 local itemButtons = {}
 local itemCatalog = {}
 local itemCounts = {}
+local itemCatalogSize = 0
 
 local function hasItemMarker(instance)
 	if instance:IsA("Tool") or instance:GetAttribute("IsItem") == true or instance:GetAttribute("IsPickup") == true then
@@ -213,7 +214,9 @@ local function registerItem(instance)
 	local part = getItemPart(root)
 	if not part then return end
 	if itemCatalog[root] then return end
+	if UT.safeMode and itemCatalogSize >= UT.llCap(250) then return end
 	itemCatalog[root] = itemName
+	itemCatalogSize = itemCatalogSize + 1
 	itemCounts[itemName] = (itemCounts[itemName] or 0) + 1
 	addItemOption(itemName)
 end
@@ -222,6 +225,7 @@ local function unregisterItemsUnder(instance)
 	for root, itemName in pairs(itemCatalog) do
 		if root == instance or root:IsDescendantOf(instance) then
 			itemCatalog[root] = nil
+			itemCatalogSize = math.max(0, itemCatalogSize - 1)
 			itemCounts[itemName] = math.max(0, (itemCounts[itemName] or 1) - 1)
 			removeItemOption(itemName)
 		end
@@ -544,12 +548,17 @@ local function scanWorldItems()
 		whitelist[itemName] = nil
 	end
 	for root in pairs(itemCatalog) do itemCatalog[root] = nil end
+	itemCatalogSize = 0
 	for itemName in pairs(itemCounts) do itemCounts[itemName] = nil end
 
-	local descendants = Workspace:GetDescendants()
-	for index, descendant in ipairs(descendants) do
-		registerItem(descendant)
-		if index % 1000 == 0 then task.wait() end
+	if UT.safeMode then
+		pcall(function() UT.forEachDescendant(Workspace, registerItem) end)
+	else
+		local descendants = Workspace:GetDescendants()
+		for index, descendant in ipairs(descendants) do
+			registerItem(descendant)
+			if index % 1000 == 0 then task.wait() end
+		end
 	end
 
 	local instanceCount = 0

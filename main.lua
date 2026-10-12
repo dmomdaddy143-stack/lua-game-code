@@ -47,11 +47,17 @@ local tabModules = {
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local bootRequested = false
+local safeModeRequested = false
 local pickerOpen = false
 local hotkeyConnection = UserInputService.InputBegan:Connect(function(input)
-	if not loaderReady and not pickerOpen and input.KeyCode == Enum.KeyCode.X
-		and (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)) then
-		bootRequested = true
+	local shiftHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+	if not loaderReady and not pickerOpen and shiftHeld then
+		if input.KeyCode == Enum.KeyCode.Q then
+			safeModeRequested = true
+			bootRequested = false
+		elseif input.KeyCode == Enum.KeyCode.X then
+			bootRequested = true
+		end
 	end
 end)
 
@@ -236,6 +242,7 @@ end
 local selectedModules
 local testMode = false
 local potatoMode = false
+local safeMode = false
 local loadedModules = {}
 
 local function fetchSource(name)
@@ -286,14 +293,27 @@ end
 local function applyBootPicker()
 	bootRequested = false
 	selectedModules, testMode, potatoMode = showBootPicker(loadedModules)
+	safeMode = potatoMode
+	UT.safeMode = safeMode
 	UT.potatoMode = potatoMode
 	UT.lowLagMode = potatoMode
 end
 
-notify("Ultimate Toolkit", "Loading modules. Press Shift+X to choose tabs or enable test/potato mode.")
+local function applySafeMode()
+	safeModeRequested = false
+	safeMode = true
+	potatoMode = true
+	UT.safeMode = true
+	UT.potatoMode = true
+	UT.lowLagMode = true
+	notify("Safe Mode", "Enabled: scans use smaller batches and yield between work")
+end
+
+notify("Ultimate Toolkit", "Loading modules. Shift+Q enables Safe Mode; Shift+X opens tab choices.")
 
 for index, name in ipairs(FILES) do
 	task.wait()
+	if safeModeRequested then applySafeMode() end
 	if bootRequested then applyBootPicker() end
 
 	local requiredModule = name == "core.lua" or name == "cleanup.lua"

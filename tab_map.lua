@@ -21,6 +21,8 @@ local lagYield = UT.lagYield
 local llYieldStep = UT.llYieldStep
 local llBtnStep = UT.llBtnStep
 local llCap = UT.llCap
+local LL_ITEM_CAP = 250
+local LL_ENTITY_CAP = 200
 local isInChar = UT.isInChar
 local isPlayerModel = UT.isPlayerModel
 local isPlayerRelated = UT.isPlayerRelated
@@ -217,17 +219,24 @@ local function scanInteractables()
 	clearInteractables()
 	local found = {}
 	local seenH = {}
-	local ok, desc = pcall(function() return workspace:GetDescendants() end)
-	if ok then
-		for i, obj in ipairs(desc) do
-			if UT.lowLagMode and i % llYieldStep() == 0 then RunService.Heartbeat:Wait() end
-			if (obj:IsA("ProximityPrompt") or obj:IsA("ClickDetector")) and obj.Parent then
-				local holder = obj.Parent
-				local skip = isCharacterPart(holder)
-				if not skip and not seenH[holder] then
-					seenH[holder] = true
-					table.insert(found, holder)
-				end
+	local function inspect(obj)
+		if (obj:IsA("ProximityPrompt") or obj:IsA("ClickDetector")) and obj.Parent then
+			local holder = obj.Parent
+			local skip = isCharacterPart(holder)
+			if not skip and not seenH[holder] and (not UT.safeMode or #found < llCap(150)) then
+				seenH[holder] = true
+				table.insert(found, holder)
+			end
+		end
+	end
+	if UT.safeMode then
+		pcall(function() UT.forEachDescendant(workspace, inspect) end)
+	else
+		local ok, desc = pcall(function() return workspace:GetDescendants() end)
+		if ok then
+			for i, obj in ipairs(desc) do
+				if UT.lowLagMode and i % llYieldStep() == 0 then RunService.Heartbeat:Wait() end
+				inspect(obj)
 			end
 		end
 	end
@@ -420,27 +429,38 @@ local function scanMapObjects()
 	trackedItems = {}
 	trackedEntities = {}
 	mapWalls = {}
-	local ok, desc = pcall(function() return workspace:GetDescendants() end)
-	if not ok then return end
 	local myHrpM = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local myPosM = myHrpM and myHrpM.Position
-	for i, obj in ipairs(desc) do
-		if UT.lowLagMode and i % (UT.potatoMode and 250 or 500) == 0 then RunService.Heartbeat:Wait() end
+	local function inspect(obj)
 		if obj:IsA("Tool") and not isInChar(obj) then
 			local part = obj:FindFirstChildWhichIsA("BasePart")
-			if part then table.insert(trackedItems, {obj = obj, part = part}) end
+			if part and (not UT.safeMode or #trackedItems < llCap(LL_ITEM_CAP)) then
+				table.insert(trackedItems, {obj = obj, part = part})
+			end
 		elseif obj:IsA("Model") and not isPlayerModel(obj) and not isPlayerRelated(obj) then
 			local hum = obj:FindFirstChildOfClass("Humanoid")
 			local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
-			if hum and hrp then
+			if hum and hrp and (not UT.safeMode or #trackedEntities < llCap(LL_ENTITY_CAP)) then
 				table.insert(trackedEntities, {obj = obj, part = hrp})
 			end
 		elseif obj:IsA("BasePart") and not isCharacterPart(obj) then
 			local sz = obj.Size
 			if (sz.X > 6 or sz.Z > 6) and sz.Y > 0.5 and sz.Y < 40
-				and (not UT.lowLagMode or not myPosM or (obj.Position - myPosM).Magnitude < (UT.potatoMode and 350 or 600)) then
+				and (not UT.lowLagMode or not myPosM or (obj.Position - myPosM).Magnitude < (UT.safeMode and 250 or (UT.potatoMode and 350 or 600)))
+				and (not UT.safeMode or #mapWalls < llCap(LL_ENTITY_CAP)) then
 				table.insert(mapWalls, obj)
 			end
+		end
+	end
+
+	if UT.safeMode then
+		pcall(function() UT.forEachDescendant(workspace, inspect) end)
+	else
+		local ok, desc = pcall(function() return workspace:GetDescendants() end)
+		if not ok then return end
+		for i, obj in ipairs(desc) do
+			if UT.lowLagMode and i % (UT.potatoMode and 250 or 500) == 0 then RunService.Heartbeat:Wait() end
+			inspect(obj)
 		end
 	end
 	notify("Minimap", "Scanned " .. #mapWalls .. " walls, " .. #trackedItems .. " items, " .. #trackedEntities .. " entities")

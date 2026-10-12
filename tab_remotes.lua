@@ -150,16 +150,15 @@ local function scanRemotes()
 	local services = {game:GetService("ReplicatedStorage"), workspace, game:GetService("Players"), game:GetService("StarterGui"), game:GetService("StarterPack"), game:GetService("Lighting"), game:GetService("SoundService")}
 	for _, service in ipairs(services) do
 		lagYield()
-		local ok, children = pcall(function() return service:GetDescendants() end)
-		if ok then
-			for i, obj in ipairs(children) do
-				if UT.lowLagMode and i % llYieldStep() == 0 then RunService.Heartbeat:Wait() end
-				if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and not seen[obj] then
+		pcall(function()
+			UT.forEachDescendant(service, function(obj)
+				if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and not seen[obj]
+					and (not UT.safeMode or #found < llCap(LL_REMOTE_CAP)) then
 					seen[obj] = true
 					table.insert(found, obj)
 				end
-			end
-		end
+			end)
+		end)
 	end
 	table.sort(found, function(a,b) return a.Name:lower() < b.Name:lower() end)
 	local shown = 0

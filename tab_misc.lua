@@ -21,6 +21,27 @@ local lagYield = UT.lagYield
 local llYieldStep = UT.llYieldStep
 local llBtnStep = UT.llBtnStep
 local llCap = UT.llCap
+local toolScanBusy = false
+local nextToolScanAt = 0
+local scannedTools = setmetatable({}, {__mode = "k"})
+
+local function scanWorldTools(callback)
+	local now = os.clock()
+	local interval = UT.safeMode and 4 or (UT.lowLagMode and 1 or 0.25)
+	if toolScanBusy or now < nextToolScanAt then return end
+	nextToolScanAt = now + interval
+	toolScanBusy = true
+	task.spawn(function()
+		pcall(function()
+			if UT.forEachDescendant then
+				UT.forEachDescendant(workspace, callback)
+			else
+				for _, obj in ipairs(workspace:GetDescendants()) do callback(obj) end
+			end
+		end)
+		toolScanBusy = false
+	end)
+end
 
 -- ============================================
 -- MISC TAB
@@ -46,17 +67,18 @@ makeToggle(miscFrame, "Auto Farm Items", 20, function(enabled)
 			if not hrp then return end
 			local bp = player:FindFirstChildOfClass("Backpack")
 			if not bp then return end
-			for _, obj in ipairs(workspace:GetDescendants()) do
-				if obj:IsA("Tool") and obj.Parent and obj.Parent ~= bp and obj.Parent ~= char then
+			scanWorldTools(function(obj)
+				if obj:IsA("Tool") and obj.Parent and obj.Parent ~= bp and obj.Parent ~= char and not scannedTools[obj] then
 					local part = obj:FindFirstChildWhichIsA("BasePart")
 					if part then
 						local dist = (part.Position - hrp.Position).Magnitude
 						if dist < 20 then
-							pcall(function() obj:Clone().Parent = bp end)
+							local ok = pcall(function() obj:Clone().Parent = bp end)
+							if ok then scannedTools[obj] = true end
 						end
 					end
 				end
-			end
+			end)
 		end)
 	else
 		if UT.autoFarmConn then UT.autoFarmConn:Disconnect(); UT.autoFarmConn = nil end
@@ -162,18 +184,19 @@ makeToggle(miscFrame, "Item Magnet", 170, function(enabled)
 			if not hrp then return end
 			local bp = player:FindFirstChildOfClass("Backpack")
 			if not bp then return end
-			for _, obj in ipairs(workspace:GetDescendants()) do
-				if obj:IsA("Tool") and obj.Parent and obj.Parent ~= bp and obj.Parent ~= char then
+			scanWorldTools(function(obj)
+				if obj:IsA("Tool") and obj.Parent and obj.Parent ~= bp and obj.Parent ~= char and not scannedTools[obj] then
 					local part = obj:FindFirstChildWhichIsA("BasePart")
 					if part then
 						local dist = (part.Position - hrp.Position).Magnitude
 						if dist < 30 then
 							part.CFrame = hrp.CFrame + Vector3.new(0, 0, -3)
-							pcall(function() obj:Clone().Parent = bp end)
+							local ok = pcall(function() obj:Clone().Parent = bp end)
+							if ok then scannedTools[obj] = true end
 						end
 					end
 				end
-			end
+			end)
 		end)
 	else
 		if UT.magnetConn then UT.magnetConn:Disconnect(); UT.magnetConn = nil end

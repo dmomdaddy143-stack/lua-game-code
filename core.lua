@@ -140,6 +140,7 @@ local tabForModule = {
 -- Potato Mode: stacks on top of Low Lag Mode, tiny scans + near-only
 UT.lowLagMode = UT.lowLagMode == true
 UT.potatoMode = UT.potatoMode == true
+UT.safeMode = UT.safeMode == true
 local LL_REMOTE_CAP = 250
 local LL_ITEM_CAP = 250
 local LL_ENTITY_CAP = 200
@@ -154,6 +155,27 @@ local function llBtnStep()
 end
 local function llCap(n)
 	return UT.lowLagMode and (UT.potatoMode and math.max(25, math.floor(n / 3)) or n) or math.huge
+end
+
+local function forEachDescendant(root, callback)
+	local stack = root:GetChildren()
+	local processed = 0
+	local yieldEvery = UT.safeMode and 75 or (UT.potatoMode and 150 or 500)
+	while #stack > 0 do
+		local instance = stack[#stack]
+		stack[#stack] = nil
+		if instance.Parent then
+			callback(instance)
+			for _, child in ipairs(instance:GetChildren()) do
+				table.insert(stack, child)
+			end
+		end
+		processed = processed + 1
+		if UT.lowLagMode and processed % yieldEvery == 0 then
+			RunService.Heartbeat:Wait()
+		end
+	end
+	return processed
 end
 
 local function switchTab(name)
@@ -505,6 +527,7 @@ UT.lagYield = lagYield
 UT.llYieldStep = llYieldStep
 UT.llBtnStep = llBtnStep
 UT.llCap = llCap
+UT.forEachDescendant = forEachDescendant
 UT.isInChar = isInChar
 UT.isPlayerModel = isPlayerModel
 UT.isPlayerRelated = isPlayerRelated

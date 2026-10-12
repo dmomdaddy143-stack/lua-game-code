@@ -204,7 +204,7 @@ makeToggle(vFrame, "X-Ray", 200, function(enabled)
 			local char = player.Character
 			local hrp = char and char:FindFirstChild("HumanoidRootPart")
 			if not hrp then return end
-			for _, obj in ipairs(workspace:GetDescendants()) do
+			local function inspect(obj)
 				if obj:IsA("BasePart") then
 					local isCharPart = char and obj:IsDescendantOf(char)
 					if not isCharPart then
@@ -215,9 +215,17 @@ makeToggle(vFrame, "X-Ray", 200, function(enabled)
 							end
 						end
 					end
-					if not isCharPart and (obj.Position - hrp.Position).Magnitude < scanRange then
+					local maxParts = UT.safeMode and 200 or math.huge
+					if not isCharPart and #parts < maxParts and (obj.Position - hrp.Position).Magnitude < scanRange then
 						table.insert(parts, obj)
 					end
+				end
+			end
+			if UT.safeMode then
+				pcall(function() UT.forEachDescendant(workspace, inspect) end)
+			else
+				for _, obj in ipairs(workspace:GetDescendants()) do
+					inspect(obj)
 				end
 			end
 		end

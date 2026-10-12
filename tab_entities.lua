@@ -333,6 +333,38 @@ local function scanEntities()
 	local found = {}
 	local seen = {}
 
+	if UT.safeMode then
+		local safeRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		pcall(function()
+			UT.forEachDescendant(workspace, function(obj)
+				local candidate = false
+				if obj:IsA("Model") and not isPlayerModel(obj) and not isPlayerRelated(obj) then
+					local nameLower = obj.Name:lower()
+					local hasHumanoid = obj:FindFirstChildOfClass("Humanoid") ~= nil
+					local hasRoot = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("UpperTorso")
+					local enemyLike = nameLower:find("enemy") or nameLower:find("boss") or nameLower:find("npc")
+						or nameLower:find("mob") or nameLower:find("monster") or nameLower:find("guard")
+						or nameLower:find("bandit") or nameLower:find("zombie") or nameLower:find("skeleton")
+						or nameLower:find("golem") or nameLower:find("villain") or nameLower:find("target")
+						or nameLower:find("dummy") or nameLower:find("training")
+					local hasHealth = obj:GetAttribute("Health") or obj:GetAttribute("HP") or obj:GetAttribute("MaxHealth")
+					candidate = (hasHumanoid or hasRoot or enemyLike or hasHealth)
+						and obj:FindFirstChildWhichIsA("BasePart") ~= nil
+				elseif obj:IsA("BasePart") and not isPlayerRelated(obj) then
+					local nameLower = obj.Name:lower()
+					candidate = nameLower:find("hitbox") or nameLower:find("hurtbox")
+						or nameLower:find("enemybox") or nameLower:find("damage")
+						or nameLower:find("weakpoint") or nameLower:find("critical")
+						or nameLower:find("attackbox")
+				end
+				if candidate and (not safeRoot or (getEntityPrimaryPart(obj).Position - safeRoot.Position).Magnitude < 300)
+					and #found < llCap(LL_ENTITY_CAP) then
+					seen[obj] = true
+					table.insert(found, obj)
+				end
+			end)
+		end)
+	else
 	local ok, descendants = pcall(function() return workspace:GetDescendants() end)
 	if ok then
 		if UT.lowLagMode then
@@ -430,6 +462,7 @@ local function scanEntities()
 				end
 			end
 		end
+	end
 	end
 
 	if UT.potatoMode then
