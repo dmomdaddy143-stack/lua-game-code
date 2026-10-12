@@ -141,6 +141,9 @@ local tabForModule = {
 UT.lowLagMode = UT.lowLagMode == true
 UT.potatoMode = UT.potatoMode == true
 UT.safeMode = UT.safeMode == true
+UT.cancelHeavyWork = false
+UT.lagDetected = false
+UT.activeHeavyWork = nil
 local LL_REMOTE_CAP = 250
 local LL_ITEM_CAP = 250
 local LL_ENTITY_CAP = 200
@@ -162,6 +165,7 @@ local function forEachDescendant(root, callback)
 	local processed = 0
 	local yieldEvery = UT.safeMode and 75 or (UT.potatoMode and 150 or 500)
 	while #stack > 0 do
+		if UT.cancelHeavyWork then return processed, false end
 		local instance = stack[#stack]
 		stack[#stack] = nil
 		if instance.Parent then
@@ -175,7 +179,7 @@ local function forEachDescendant(root, callback)
 			RunService.Heartbeat:Wait()
 		end
 	end
-	return processed
+	return processed, true
 end
 
 local function switchTab(name)
@@ -288,6 +292,47 @@ local function notify(t, m)
 		game:GetService("StarterGui"):SetCore("SendNotification", {Title = t, Text = m, Duration = 3})
 	end)
 end
+
+UT.beginHeavyWork = function(label)
+	if UT.lagDetected then return false end
+	UT.cancelHeavyWork = false
+	UT.activeHeavyWork = label or "Scan"
+	UT.stopHeavyWork = function()
+		UT.cancelHeavyWork = true
+	end
+	return true
+end
+
+UT.finishHeavyWork = function()
+	UT.activeHeavyWork = nil
+	UT.cancelHeavyWork = false
+	UT.stopHeavyWork = nil
+end
+
+local lagFrameCount = 0
+local recoveryFrameCount = 0
+UT.lagWatchdogConn = RunService.Heartbeat:Connect(function(deltaTime)
+	if deltaTime >= 0.4 then
+		lagFrameCount = lagFrameCount + 1
+		recoveryFrameCount = 0
+		if lagFrameCount >= 2 and not UT.lagDetected then
+			UT.lagDetected = true
+			UT.cancelHeavyWork = true
+			local stoppedWork = UT.activeHeavyWork or "heavy work"
+			if UT.stopHeavyWork then pcall(UT.stopHeavyWork) end
+			notify("Lag detected", stoppedWork .. " stopped. Wait for recovery, then rescan.")
+		end
+	else
+		lagFrameCount = 0
+		if UT.lagDetected then
+			recoveryFrameCount = recoveryFrameCount + 1
+			if recoveryFrameCount >= 20 then
+				UT.lagDetected = false
+				recoveryFrameCount = 0
+			end
+		end
+	end
+end)
 
 local toggleRegistry = {}
 local toggleSetters = {}

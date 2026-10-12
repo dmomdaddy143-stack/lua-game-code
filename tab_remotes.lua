@@ -144,6 +144,10 @@ local function makeRemoteBtn(name, remote)
 end
 
 local function scanRemotes()
+	if not UT.beginHeavyWork("Remote scan") then
+		rStatus.Text = "Waiting for lag recovery before scanning"
+		return
+	end
 	clearRemotes()
 	local found = {}
 	local seen = {}
@@ -159,10 +163,17 @@ local function scanRemotes()
 				end
 			end)
 		end)
+		if UT.cancelHeavyWork then break end
+	end
+	if UT.cancelHeavyWork then
+		rStatus.Text = "Remote scan stopped because lag was detected. Rescan after recovery."
+		UT.finishHeavyWork()
+		return
 	end
 	table.sort(found, function(a,b) return a.Name:lower() < b.Name:lower() end)
 	local shown = 0
 	for i, remote in ipairs(found) do
+		if UT.cancelHeavyWork then break end
 		if i > llCap(LL_REMOTE_CAP) then break end
 		if UT.lowLagMode and i % llBtnStep() == 0 then RunService.Heartbeat:Wait() end
 		local path = remote:GetFullName()
@@ -173,6 +184,7 @@ local function scanRemotes()
 	end
 	rStatus.Text = "Found " .. shown .. (shown < #found and (" / " .. #found .. " (lag cap)") or " remotes")
 	notify("Scanner", "Found " .. shown .. " remotes")
+	UT.finishHeavyWork()
 end
 
 rScan.MouseButton1Click:Connect(function() task.spawn(scanRemotes) end)

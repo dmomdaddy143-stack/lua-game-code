@@ -216,10 +216,15 @@ local function tpToInteractable(holder)
 end
 
 local function scanInteractables()
+	if not UT.beginHeavyWork("Interactable scan") then
+		intLabel.Text = "Waiting for lag recovery before scanning"
+		return
+	end
 	clearInteractables()
 	local found = {}
 	local seenH = {}
 	local function inspect(obj)
+		if UT.cancelHeavyWork then return end
 		if (obj:IsA("ProximityPrompt") or obj:IsA("ClickDetector")) and obj.Parent then
 			local holder = obj.Parent
 			local skip = isCharacterPart(holder)
@@ -235,14 +240,21 @@ local function scanInteractables()
 		local ok, desc = pcall(function() return workspace:GetDescendants() end)
 		if ok then
 			for i, obj in ipairs(desc) do
+				if UT.cancelHeavyWork then break end
 				if UT.lowLagMode and i % llYieldStep() == 0 then RunService.Heartbeat:Wait() end
 				inspect(obj)
 			end
 		end
 	end
+	if UT.cancelHeavyWork then
+		intLabel.Text = "Interactables scan stopped because lag was detected. Rescan after recovery."
+		UT.finishHeavyWork()
+		return
+	end
 	table.sort(found, function(a,b) return a.Name:lower() < b.Name:lower() end)
 	local shown = 0
 	for i, holder in ipairs(found) do
+		if UT.cancelHeavyWork then break end
 		if i > llCap(150) then break end
 		if UT.lowLagMode and i % llBtnStep() == 0 then RunService.Heartbeat:Wait() end
 		local row = Instance.new("Frame")
@@ -274,8 +286,14 @@ local function scanInteractables()
 		tpB.MouseButton1Click:Connect(function() tpToInteractable(holder) end)
 		shown = i
 	end
+	if UT.cancelHeavyWork then
+		intLabel.Text = "Interactables scan stopped because lag was detected. Rescan after recovery."
+		UT.finishHeavyWork()
+		return
+	end
 	intLabel.Text = "Interactables: " .. shown .. (shown < #found and (" / " .. #found .. " (lag cap)") or "")
 	notify("Interactables", "Found " .. shown .. " (" .. #found .. " total)")
+	UT.finishHeavyWork()
 end
 
 intScan.MouseButton1Click:Connect(function() task.spawn(scanInteractables) end)
@@ -426,12 +444,17 @@ local function isCharacterPart(obj)
 end
 
 local function scanMapObjects()
+	if not UT.beginHeavyWork("Map scan") then
+		notify("Minimap", "Waiting for lag recovery before scanning")
+		return
+	end
 	trackedItems = {}
 	trackedEntities = {}
 	mapWalls = {}
 	local myHrpM = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local myPosM = myHrpM and myHrpM.Position
 	local function inspect(obj)
+		if UT.cancelHeavyWork then return end
 		if obj:IsA("Tool") and not isInChar(obj) then
 			local part = obj:FindFirstChildWhichIsA("BasePart")
 			if part and (not UT.safeMode or #trackedItems < llCap(LL_ITEM_CAP)) then
@@ -457,13 +480,23 @@ local function scanMapObjects()
 		pcall(function() UT.forEachDescendant(workspace, inspect) end)
 	else
 		local ok, desc = pcall(function() return workspace:GetDescendants() end)
-		if not ok then return end
+		if not ok then
+			UT.finishHeavyWork()
+			return
+		end
 		for i, obj in ipairs(desc) do
+			if UT.cancelHeavyWork then break end
 			if UT.lowLagMode and i % (UT.potatoMode and 250 or 500) == 0 then RunService.Heartbeat:Wait() end
 			inspect(obj)
 		end
 	end
+	if UT.cancelHeavyWork then
+		notify("Minimap", "Scan stopped because lag was detected. Rescan after recovery.")
+		UT.finishHeavyWork()
+		return
+	end
 	notify("Minimap", "Scanned " .. #mapWalls .. " walls, " .. #trackedItems .. " items, " .. #trackedEntities .. " entities")
+	UT.finishHeavyWork()
 end
 
 mapScanBtn.MouseButton1Click:Connect(function() task.spawn(scanMapObjects) end)

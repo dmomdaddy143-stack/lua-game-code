@@ -334,6 +334,10 @@ end
 
 
 local function scanItems()
+	if not UT.beginHeavyWork("Item scan") then
+		iStatus.Text = "Waiting for lag recovery before scanning"
+		return
+	end
 	clearItems()
 	local found = {}
 	local seen = {}
@@ -349,10 +353,17 @@ local function scanItems()
 				end
 			end)
 		end)
+		if UT.cancelHeavyWork then break end
+	end
+	if UT.cancelHeavyWork then
+		iStatus.Text = "Item scan stopped because lag was detected. Rescan after recovery."
+		UT.finishHeavyWork()
+		return
 	end
 	table.sort(found, function(a,b) return a.tool.Name:lower() < b.tool.Name:lower() end)
 	local shown = 0
 	for i, entry in ipairs(found) do
+		if UT.cancelHeavyWork then break end
 		if i > llCap(LL_ITEM_CAP) then break end
 		if UT.lowLagMode and i % llBtnStep() == 0 then RunService.Heartbeat:Wait() end
 		allTools[#allTools+1] = entry.tool
@@ -361,6 +372,7 @@ local function scanItems()
 	end
 	iStatus.Text = "Found " .. shown .. (shown < #found and (" / " .. #found .. " (lag cap)") or " items")
 	notify("Grabber", "Found " .. shown .. " items")
+	UT.finishHeavyWork()
 end
 
 iScan.MouseButton1Click:Connect(function() task.spawn(scanItems) end)

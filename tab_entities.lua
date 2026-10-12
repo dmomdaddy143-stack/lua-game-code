@@ -329,6 +329,10 @@ local function makeEntityBtn(name, model)
 end
 
 local function scanEntities()
+	if not UT.beginHeavyWork("Entity scan") then
+		eStatus.Text = "Waiting for lag recovery before scanning"
+		return
+	end
 	clearEntities()
 	local found = {}
 	local seen = {}
@@ -470,10 +474,16 @@ local function scanEntities()
 		if hrpP then
 			local filtered = {}
 			for _, m in ipairs(found) do
+				if UT.cancelHeavyWork then break end
 				local pp = getEntityPrimaryPart(m)
 				if pp and (pp.Position - hrpP.Position).Magnitude < 400 then
 					table.insert(filtered, m)
 				end
+			end
+			if UT.cancelHeavyWork then
+				eStatus.Text = "Entity scan stopped because lag was detected. Rescan after recovery."
+				UT.finishHeavyWork()
+				return
 			end
 			found = filtered
 		end
@@ -482,6 +492,7 @@ local function scanEntities()
 	table.sort(found, function(a,b) return a.Name:lower() < b.Name:lower() end)
 	local shown = 0
 	for i, model in ipairs(found) do
+		if UT.cancelHeavyWork then break end
 		if i > llCap(LL_ENTITY_CAP) then break end
 		if UT.lowLagMode and i % (UT.potatoMode and 8 or 20) == 0 then RunService.Heartbeat:Wait() end
 		local path = model:GetFullName()
@@ -494,6 +505,11 @@ local function scanEntities()
 		createEntityDrawing(model)
 		shown = i
 	end
+	if UT.cancelHeavyWork then
+		eStatus.Text = "Entity scan stopped because lag was detected. Rescan after recovery."
+		UT.finishHeavyWork()
+		return
+	end
 	eStatus.Text = "Found " .. shown .. (shown < #found and (" / " .. #found .. " (lag cap)") or " entities")
 	notify("Entities", "Found " .. shown .. " entities")
 
@@ -504,6 +520,7 @@ local function scanEntities()
 		eEspBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
 		notify("Entity ESP", "Auto-enabled (" .. shown .. " entities)")
 	end
+	UT.finishHeavyWork()
 end
 
 eScan.MouseButton1Click:Connect(function() task.spawn(scanEntities) end)
