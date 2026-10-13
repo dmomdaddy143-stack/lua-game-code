@@ -36,8 +36,11 @@ UT.shutdown = function()
 	if shutDown then return end
 	shutDown = true
 	if UT.cleanupBring then pcall(UT.cleanupBring) end
+	if UT.cleanupMap then pcall(UT.cleanupMap) end
+	if UT.cleanupTargetPlayerEsp then pcall(UT.cleanupTargetPlayerEsp) end
 	if UT.espConnection then UT.espConnection:Disconnect() end
 	if UT.statsConn then UT.statsConn:Disconnect() end
+	if UT.statsCharacterConn then UT.statsCharacterConn:Disconnect() end
 	if UT.cframeSpeedConn then UT.cframeSpeedConn:Disconnect() end
 	if UT.flyConn then UT.flyConn:Disconnect() end
 	if UT.autoFarmConn then UT.autoFarmConn:Disconnect() end

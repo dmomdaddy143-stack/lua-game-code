@@ -175,7 +175,7 @@ local function forEachDescendant(root, callback)
 			end
 		end
 		processed = processed + 1
-		if UT.lowLagMode and processed % yieldEvery == 0 then
+		if processed % yieldEvery == 0 then
 			RunService.Heartbeat:Wait()
 		end
 	end

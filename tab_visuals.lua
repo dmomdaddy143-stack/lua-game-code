@@ -274,5 +274,110 @@ makeToggle(vFrame, "X-Ray", 200, function(enabled)
 	end
 end)
 
+local targetPlayerBox = Instance.new("TextBox")
+targetPlayerBox.Size = UDim2.new(0, 220, 0, 22)
+targetPlayerBox.Position = UDim2.new(0, 0, 0, 238)
+targetPlayerBox.PlaceholderText = "Player name for target ESP"
+targetPlayerBox.Text = ""
+targetPlayerBox.TextColor3 = Color3.new(1, 1, 1)
+targetPlayerBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+targetPlayerBox.Font = Enum.Font.Gotham
+targetPlayerBox.TextSize = 10
+targetPlayerBox.Parent = vFrame
+Instance.new("UICorner", targetPlayerBox).CornerRadius = UDim.new(0, 4)
+
+local targetPlayerEspButton = Instance.new("TextButton")
+targetPlayerEspButton.Size = UDim2.new(0, 130, 0, 22)
+targetPlayerEspButton.Position = UDim2.new(0, 230, 0, 238)
+targetPlayerEspButton.Text = "Target ESP: OFF"
+targetPlayerEspButton.TextColor3 = Color3.new(1, 1, 1)
+targetPlayerEspButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+targetPlayerEspButton.Font = Enum.Font.GothamBold
+targetPlayerEspButton.TextSize = 10
+targetPlayerEspButton.Parent = vFrame
+Instance.new("UICorner", targetPlayerEspButton).CornerRadius = UDim.new(0, 4)
+
+local targetPlayerEsp
+local targetCharacterConnection
+local targetHighlight
+local targetBillboard
+
+local function clearTargetPlayerEsp()
+	if targetCharacterConnection then
+		targetCharacterConnection:Disconnect()
+		targetCharacterConnection = nil
+	end
+	if targetHighlight then targetHighlight:Destroy(); targetHighlight = nil end
+	if targetBillboard then targetBillboard:Destroy(); targetBillboard = nil end
+	targetPlayerEsp = nil
+	targetPlayerEspButton.Text = "Target ESP: OFF"
+	targetPlayerEspButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+end
+
+local function attachTargetPlayerEsp(target, character)
+	if not target or not character then return end
+	if targetHighlight then targetHighlight:Destroy() end
+	if targetBillboard then targetBillboard:Destroy() end
+	local adornee = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not adornee then return end
+	targetHighlight = Instance.new("Highlight")
+	targetHighlight.Name = "ToolkitTargetHighlight"
+	targetHighlight.Adornee = character
+	targetHighlight.FillColor = Color3.fromRGB(255, 190, 50)
+	targetHighlight.FillTransparency = 0.75
+	targetHighlight.OutlineColor = Color3.fromRGB(255, 220, 100)
+	targetHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	targetHighlight.Parent = character
+
+	targetBillboard = Instance.new("BillboardGui")
+	targetBillboard.Name = "ToolkitTargetLabel"
+	targetBillboard.Adornee = adornee
+	targetBillboard.Size = UDim2.new(0, 150, 0, 28)
+	targetBillboard.StudsOffset = Vector3.new(0, 2.5, 0)
+	targetBillboard.AlwaysOnTop = true
+	targetBillboard.Parent = gui
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = target.Name
+	label.TextColor3 = Color3.fromRGB(255, 220, 100)
+	label.TextStrokeTransparency = 0.2
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 13
+	label.Parent = targetBillboard
+end
+
+targetPlayerEspButton.MouseButton1Click:Connect(function()
+	if targetPlayerEsp then
+		clearTargetPlayerEsp()
+		return
+	end
+	local searchName = targetPlayerBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+	if searchName == "" then
+		notify("Target ESP", "Enter a player name first")
+		return
+	end
+	for _, target in ipairs(Players:GetPlayers()) do
+		if target ~= player and (target.Name:lower() == searchName or target.DisplayName:lower() == searchName) then
+			targetPlayerEsp = target
+			targetPlayerEspButton.Text = "Target ESP: ON"
+			targetPlayerEspButton.BackgroundColor3 = Color3.fromRGB(0, 125, 78)
+			attachTargetPlayerEsp(target, target.Character)
+			targetCharacterConnection = target.CharacterAdded:Connect(function(character)
+				task.wait(0.25)
+				if targetPlayerEsp == target then attachTargetPlayerEsp(target, character) end
+			end)
+			return
+		end
+	end
+	notify("Target ESP", "Player not found; use the exact username or display name")
+end)
+
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+	if leavingPlayer == targetPlayerEsp then clearTargetPlayerEsp() end
+end)
+
+UT.cleanupTargetPlayerEsp = clearTargetPlayerEsp
+
 -- export for cleanup.lua render loop
 UT.updatePlayerEsp = updatePlayerEsp

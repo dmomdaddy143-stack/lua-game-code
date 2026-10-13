@@ -37,7 +37,7 @@ speedLbl.TextSize = 10
 speedLbl.Parent = mFrame
 
 local speedBox = Instance.new("TextBox")
-speedBox.Size = UDim2.new(1, 0, 0, 22)
+speedBox.Size = UDim2.new(1, -80, 0, 22)
 speedBox.Position = UDim2.new(0, 0, 0, 16)
 speedBox.Text = "50"
 speedBox.TextColor3 = Color3.new(1,1,1)
@@ -46,6 +46,17 @@ speedBox.Font = Enum.Font.Gotham
 speedBox.TextSize = 11
 speedBox.Parent = mFrame
 Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 4)
+
+local defaultSpeedButton = Instance.new("TextButton")
+defaultSpeedButton.Size = UDim2.new(0, 72, 0, 22)
+defaultSpeedButton.Position = UDim2.new(1, -72, 0, 16)
+defaultSpeedButton.Text = "Default"
+defaultSpeedButton.TextColor3 = Color3.new(1, 1, 1)
+defaultSpeedButton.BackgroundColor3 = Color3.fromRGB(45, 65, 55)
+defaultSpeedButton.Font = Enum.Font.GothamBold
+defaultSpeedButton.TextSize = 10
+defaultSpeedButton.Parent = mFrame
+Instance.new("UICorner", defaultSpeedButton).CornerRadius = UDim.new(0, 4)
 
 local jumpLbl = Instance.new("TextLabel")
 jumpLbl.Size = UDim2.new(1, 0, 0, 16)
@@ -58,7 +69,7 @@ jumpLbl.TextSize = 10
 jumpLbl.Parent = mFrame
 
 local jumpBox = Instance.new("TextBox")
-jumpBox.Size = UDim2.new(1, 0, 0, 22)
+jumpBox.Size = UDim2.new(1, -80, 0, 22)
 jumpBox.Position = UDim2.new(0, 0, 0, 60)
 jumpBox.Text = "50"
 jumpBox.TextColor3 = Color3.new(1,1,1)
@@ -68,6 +79,26 @@ jumpBox.TextSize = 11
 jumpBox.Parent = mFrame
 Instance.new("UICorner", jumpBox).CornerRadius = UDim.new(0, 4)
 
+local defaultJumpButton = Instance.new("TextButton")
+defaultJumpButton.Size = UDim2.new(0, 72, 0, 22)
+defaultJumpButton.Position = UDim2.new(1, -72, 0, 60)
+defaultJumpButton.Text = "Default"
+defaultJumpButton.TextColor3 = Color3.new(1, 1, 1)
+defaultJumpButton.BackgroundColor3 = Color3.fromRGB(45, 65, 55)
+defaultJumpButton.Font = Enum.Font.GothamBold
+defaultJumpButton.TextSize = 10
+defaultJumpButton.Parent = mFrame
+Instance.new("UICorner", defaultJumpButton).CornerRadius = UDim.new(0, 4)
+
+local defaultWalkSpeed = 16
+local defaultJumpPower = 50
+local defaultJumpHeight = 7.2
+local function captureDefaultStats(humanoid)
+	defaultWalkSpeed = humanoid.WalkSpeed
+	defaultJumpPower = humanoid.JumpPower
+	defaultJumpHeight = humanoid.JumpHeight
+end
+
 local function applyStats()
 	local char = player.Character
 	if char then
@@ -76,10 +107,45 @@ local function applyStats()
 			local s = tonumber(speedBox.Text)
 			local j = tonumber(jumpBox.Text)
 			if s then hum.WalkSpeed = s end
-			if j then hum.JumpPower = j end
+			if j then
+				if hum.UseJumpPower then hum.JumpPower = j else hum.JumpHeight = j end
+			end
 		end
 	end
 end
+
+local function resetWalkSpeed()
+	speedBox.Text = tostring(defaultWalkSpeed)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then humanoid.WalkSpeed = defaultWalkSpeed end
+end
+
+local function resetJump()
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local defaultJump = humanoid and humanoid.UseJumpPower and defaultJumpPower or defaultJumpHeight
+	jumpBox.Text = tostring(defaultJump)
+	if humanoid then
+		if humanoid.UseJumpPower then humanoid.JumpPower = defaultJumpPower else humanoid.JumpHeight = defaultJumpHeight end
+	end
+end
+
+defaultSpeedButton.MouseButton1Click:Connect(resetWalkSpeed)
+defaultJumpButton.MouseButton1Click:Connect(resetJump)
+
+local function onCharacterAdded(character)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if not humanoid then return end
+	captureDefaultStats(humanoid)
+	speedBox.Text = tostring(defaultWalkSpeed)
+	jumpBox.Text = tostring(humanoid.UseJumpPower and defaultJumpPower or defaultJumpHeight)
+end
+
+local initialHumanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+if initialHumanoid then
+	captureDefaultStats(initialHumanoid)
+	jumpBox.Text = tostring(initialHumanoid.UseJumpPower and defaultJumpPower or defaultJumpHeight)
+end
+UT.statsCharacterConn = player.CharacterAdded:Connect(onCharacterAdded)
 
 speedBox.FocusLost:Connect(applyStats)
 jumpBox.FocusLost:Connect(applyStats)
@@ -92,7 +158,10 @@ UT.statsConn = RunService.Heartbeat:Connect(function()
 			local s = tonumber(speedBox.Text)
 			local j = tonumber(jumpBox.Text)
 			if s and hum.WalkSpeed ~= s then hum.WalkSpeed = s end
-			if j and hum.JumpPower ~= j then hum.JumpPower = j end
+			if j then
+				if hum.UseJumpPower and hum.JumpPower ~= j then hum.JumpPower = j end
+				if not hum.UseJumpPower and hum.JumpHeight ~= j then hum.JumpHeight = j end
+			end
 		end
 	end
 end)

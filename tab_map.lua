@@ -10,6 +10,7 @@ local TeleportService = UT.TeleportService
 local HttpService = UT.HttpService
 local TweenService = UT.TweenService
 local PhysicsService = UT.PhysicsService
+local CollectionService = game:GetService("CollectionService")
 local player = UT.player
 local camera = UT.camera
 local gui = UT.gui
@@ -128,7 +129,7 @@ makeMiniToggle(mapFrame, "Rotate", 352, true, function(v) mapRotate = v end)
 -- ProximityPrompts + ClickDetectors -> one-click TP
 -- ============================================
 local intLabel = Instance.new("TextLabel")
-intLabel.Size = UDim2.new(0, 345, 0, 16)
+intLabel.Size = UDim2.new(0, 250, 0, 16)
 intLabel.Position = UDim2.new(0, 350, 0, 72)
 intLabel.Text = "Interactables TP (prompts, click detectors)"
 intLabel.TextColor3 = Color3.fromRGB(255, 100, 255)
@@ -172,6 +173,17 @@ intSearch.TextSize = 10
 intSearch.Parent = mapFrame
 Instance.new("UICorner", intSearch).CornerRadius = UDim.new(0, 3)
 
+local intAllEspButton = Instance.new("TextButton")
+intAllEspButton.Size = UDim2.new(0, 80, 0, 20)
+intAllEspButton.Position = UDim2.new(0, 610, 0, 66)
+intAllEspButton.Text = "ESP all: OFF"
+intAllEspButton.TextColor3 = Color3.new(1, 1, 1)
+intAllEspButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+intAllEspButton.Font = Enum.Font.GothamBold
+intAllEspButton.TextSize = 9
+intAllEspButton.Parent = mapFrame
+Instance.new("UICorner", intAllEspButton).CornerRadius = UDim.new(0, 3)
+
 local intScroll = Instance.new("ScrollingFrame")
 intScroll.Size = UDim2.new(0, 345, 0, 294)
 intScroll.Position = UDim2.new(0, 350, 0, 114)
@@ -188,25 +200,38 @@ intLayout.Padding = UDim.new(0, 2)
 intLayout.Parent = intScroll
 
 local intButtons = {}
+local interactableEspGuis = {}
+local interactableEspButtons = {}
+local allInteractableEspEnabled = false
 
 local function clearInteractables()
 	for _, b in ipairs(intButtons) do pcall(function() b:Destroy() end) end
 	intButtons = {}
+	for holder, billboard in pairs(interactableEspGuis) do
+		if billboard then pcall(function() billboard:Destroy() end) end
+		interactableEspGuis[holder] = nil
+	end
+	interactableEspButtons = {}
+	allInteractableEspEnabled = false
+	intAllEspButton.Text = "ESP all: OFF"
+	intAllEspButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
 	intLabel.Text = "Interactables TP (prompts, click detectors)"
+end
+
+local function getInteractablePart(holder)
+	if holder:IsA("BasePart") then return holder end
+	if holder:IsA("Model") and holder.PrimaryPart then return holder.PrimaryPart end
+	local part = holder:FindFirstChildWhichIsA("BasePart", true)
+	if part then return part end
+	if holder.Parent and holder.Parent:IsA("BasePart") then return holder.Parent end
+	return nil
 end
 
 local function tpToInteractable(holder)
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
-	local part
-	if holder:IsA("BasePart") then
-		part = holder
-	elseif holder:IsA("Model") then
-		part = holder.PrimaryPart or holder:FindFirstChildWhichIsA("BasePart")
-	elseif holder.Parent then
-		part = holder:FindFirstChildWhichIsA("BasePart") or (holder.Parent:IsA("BasePart") and holder.Parent)
-	end
+	local part = getInteractablePart(holder)
 	if part then
 		hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
 		notify("Interact TP", holder.Name)
@@ -214,6 +239,68 @@ local function tpToInteractable(holder)
 		notify("Interact TP", "No part found for " .. holder.Name)
 	end
 end
+
+local function toggleInteractableEsp(holder, button)
+	local existing = interactableEspGuis[holder]
+	if existing then
+		existing:Destroy()
+		interactableEspGuis[holder] = nil
+		button.Text = "ESP"
+		button.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+		allInteractableEspEnabled = false
+		intAllEspButton.Text = "ESP all: OFF"
+		intAllEspButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+		return
+	end
+	local part = getInteractablePart(holder)
+	if not part then
+		notify("Interactable ESP", "No part found for " .. holder.Name)
+		return
+	end
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ToolkitInteractableESP"
+	billboard.Adornee = part
+	billboard.Size = UDim2.new(0, 160, 0, 24)
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = gui
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = holder.Name
+	label.TextColor3 = Color3.fromRGB(100, 255, 170)
+	label.TextStrokeTransparency = 0.2
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 12
+	label.Parent = billboard
+	interactableEspGuis[holder] = billboard
+	interactableEspButtons[holder] = button
+	button.Text = "ESP ON"
+	button.BackgroundColor3 = Color3.fromRGB(0, 110, 72)
+end
+
+intAllEspButton.MouseButton1Click:Connect(function()
+	allInteractableEspEnabled = not allInteractableEspEnabled
+	if allInteractableEspEnabled then
+		for holder, button in pairs(interactableEspButtons) do
+			if not interactableEspGuis[holder] then toggleInteractableEsp(holder, button) end
+		end
+		intAllEspButton.Text = "ESP all: ON"
+		intAllEspButton.BackgroundColor3 = Color3.fromRGB(0, 110, 72)
+	else
+		for holder, billboard in pairs(interactableEspGuis) do
+			if billboard then billboard:Destroy() end
+			interactableEspGuis[holder] = nil
+			local button = interactableEspButtons[holder]
+			if button and button.Parent then
+				button.Text = "ESP"
+				button.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+			end
+		end
+		intAllEspButton.Text = "ESP all: OFF"
+		intAllEspButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+	end
+end)
 
 local function scanInteractables()
 	if not UT.beginHeavyWork("Interactable scan") then
@@ -225,8 +312,16 @@ local function scanInteractables()
 	local seenH = {}
 	local function inspect(obj)
 		if UT.cancelHeavyWork then return end
-		if (obj:IsA("ProximityPrompt") or obj:IsA("ClickDetector")) and obj.Parent then
-			local holder = obj.Parent
+		local isDetector = obj:IsA("ProximityPrompt") or obj:IsA("ClickDetector")
+			or obj:IsA("DragDetector")
+		local hasMarker = obj:GetAttribute("IsInteractable") == true
+			or obj:GetAttribute("IsItem") == true
+			or CollectionService:HasTag(obj, "Interactable")
+			or CollectionService:HasTag(obj, "Pickup")
+		local isUsableObject = obj:IsA("Tool") or obj:IsA("Seat") or obj:IsA("VehicleSeat")
+		if isDetector or hasMarker or isUsableObject then
+			local holder = (isDetector and obj.Parent) or obj
+			if not holder then return end
 			local skip = isCharacterPart(holder)
 			if not skip and not seenH[holder] and (not UT.safeMode or #found < llCap(150)) then
 				seenH[holder] = true
@@ -234,17 +329,11 @@ local function scanInteractables()
 			end
 		end
 	end
-	if UT.safeMode then
-		pcall(function() UT.forEachDescendant(workspace, inspect) end)
-	else
-		local ok, desc = pcall(function() return workspace:GetDescendants() end)
-		if ok then
-			for i, obj in ipairs(desc) do
-				if UT.cancelHeavyWork then break end
-				if UT.lowLagMode and i % llYieldStep() == 0 then RunService.Heartbeat:Wait() end
-				inspect(obj)
-			end
-		end
+	local scanOk = pcall(function() UT.forEachDescendant(workspace, inspect) end)
+	if not scanOk then
+		intLabel.Text = "Interactable scan failed. Try again after the map settles."
+		UT.finishHeavyWork()
+		return
 	end
 	if UT.cancelHeavyWork then
 		intLabel.Text = "Interactables scan stopped because lag was detected. Rescan after recovery."
@@ -263,7 +352,7 @@ local function scanInteractables()
 		row.Parent = intScroll
 		table.insert(intButtons, row)
 		local nameBtn = Instance.new("TextButton")
-		nameBtn.Size = UDim2.new(0.70, 0, 1, 0)
+		nameBtn.Size = UDim2.new(0.52, 0, 1, 0)
 		nameBtn.Text = holder.Name
 		nameBtn.TextColor3 = Color3.fromRGB(100, 255, 150)
 		nameBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
@@ -273,17 +362,27 @@ local function scanInteractables()
 		nameBtn.Parent = row
 		Instance.new("UICorner", nameBtn).CornerRadius = UDim.new(0, 3)
 		local tpB = Instance.new("TextButton")
-		tpB.Size = UDim2.new(0.28, 0, 1, 0)
-		tpB.Position = UDim2.new(0.72, 0, 0, 0)
-		tpB.Text = "TP"
+		tpB.Size = UDim2.new(0.22, 0, 1, 0)
+		tpB.Position = UDim2.new(0.54, 0, 0, 0)
+		tpB.Text = "Go"
 		tpB.TextColor3 = Color3.fromRGB(255, 200, 0)
 		tpB.BackgroundColor3 = Color3.fromRGB(50, 40, 20)
 		tpB.Font = Enum.Font.GothamBold
 		tpB.TextSize = 9
 		tpB.Parent = row
 		Instance.new("UICorner", tpB).CornerRadius = UDim.new(0, 3)
-		nameBtn.MouseButton1Click:Connect(function() tpToInteractable(holder) end)
 		tpB.MouseButton1Click:Connect(function() tpToInteractable(holder) end)
+		local espButton = Instance.new("TextButton")
+		espButton.Size = UDim2.new(0.22, 0, 1, 0)
+		espButton.Position = UDim2.new(0.78, 0, 0, 0)
+		espButton.Text = "ESP"
+		espButton.TextColor3 = Color3.new(1, 1, 1)
+		espButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+		espButton.Font = Enum.Font.GothamBold
+		espButton.TextSize = 9
+		espButton.Parent = row
+		Instance.new("UICorner", espButton).CornerRadius = UDim.new(0, 3)
+		espButton.MouseButton1Click:Connect(function() toggleInteractableEsp(holder, espButton) end)
 		shown = i
 	end
 	if UT.cancelHeavyWork then
@@ -410,6 +509,29 @@ playerDir.Parent = mapCanvas
 local mapBlipFolder = Instance.new("Folder")
 mapBlipFolder.Name = "Blips"
 mapBlipFolder.Parent = mapCanvas
+local blipPool = {}
+local blipPoolIndex = 0
+
+local function clearBlipPool()
+	for _, entry in ipairs(blipPool) do
+		entry.frame.Visible = false
+		if entry.label then entry.label.Visible = false end
+	end
+	blipPoolIndex = 0
+end
+
+local function getBlip()
+	blipPoolIndex = blipPoolIndex + 1
+	local entry = blipPool[blipPoolIndex]
+	if not entry then
+		local blip = Instance.new("Frame")
+		blip.BorderSizePixel = 0
+		blip.Parent = mapBlipFolder
+		entry = {frame = blip}
+		blipPool[blipPoolIndex] = entry
+	end
+	return entry
+end
 
 -- Waypoint
 local waypoint = nil
@@ -476,19 +598,11 @@ local function scanMapObjects()
 		end
 	end
 
-	if UT.safeMode then
-		pcall(function() UT.forEachDescendant(workspace, inspect) end)
-	else
-		local ok, desc = pcall(function() return workspace:GetDescendants() end)
-		if not ok then
-			UT.finishHeavyWork()
-			return
-		end
-		for i, obj in ipairs(desc) do
-			if UT.cancelHeavyWork then break end
-			if UT.lowLagMode and i % (UT.potatoMode and 250 or 500) == 0 then RunService.Heartbeat:Wait() end
-			inspect(obj)
-		end
+	local scanOk = pcall(function() UT.forEachDescendant(workspace, inspect) end)
+	if not scanOk then
+		notify("Minimap", "Map scan failed. Try again after the map settles.")
+		UT.finishHeavyWork()
+		return
 	end
 	if UT.cancelHeavyWork then
 		notify("Minimap", "Scan stopped because lag was detected. Rescan after recovery.")
@@ -560,10 +674,8 @@ local function startMinimap()
 		local lookVec = camera.CFrame.LookVector
 		local yaw = math.atan2(lookVec.X, lookVec.Z)
 
-		-- Clear dynamic blips
-		for _, child in ipairs(mapBlipFolder:GetChildren()) do
-			child:Destroy()
-		end
+		-- Reuse blip instances instead of creating/destroying them every frame.
+		clearBlipPool()
 		clearWallPool()
 
 		local range = tonumber(mapRangeBox.Text) or 400
@@ -603,24 +715,31 @@ local function startMinimap()
 		local function addBlip(worldPos, color, size, label, zIndex)
 			local bx, by = worldToMap(worldPos.X, worldPos.Z)
 			if bx < -size or bx > mapSize + size or by < -size or by > mapSize + size then return end
-			local blip = Instance.new("Frame")
+			local entry = getBlip()
+			local blip = entry.frame
 			blip.Size = UDim2.new(0, size, 0, size)
 			blip.Position = UDim2.new(0, bx - size/2, 0, by - size/2)
 			blip.BackgroundColor3 = color
-			blip.BorderSizePixel = 0
 			blip.ZIndex = zIndex or 5
-			blip.Parent = mapBlipFolder
-			Instance.new("UICorner", blip).CornerRadius = UDim.new(1, 0)
+			blip.Visible = true
+			if not blip:FindFirstChildOfClass("UICorner") then
+				Instance.new("UICorner", blip).CornerRadius = UDim.new(1, 0)
+			end
 			if label then
-				local lbl = Instance.new("TextLabel")
-				lbl.Size = UDim2.new(1, 0, 0, 10)
-				lbl.Position = UDim2.new(0, 0, 0, -10)
-				lbl.Text = label
-				lbl.TextColor3 = color
-				lbl.BackgroundTransparency = 1
-				lbl.Font = Enum.Font.Gotham
-				lbl.TextSize = 7
-				lbl.Parent = blip
+				if not entry.label then
+					entry.label = Instance.new("TextLabel")
+					entry.label.Size = UDim2.new(1, 0, 0, 10)
+					entry.label.Position = UDim2.new(0, 0, 0, -10)
+					entry.label.BackgroundTransparency = 1
+					entry.label.Font = Enum.Font.Gotham
+					entry.label.TextSize = 7
+					entry.label.Parent = blip
+				end
+				entry.label.Text = label
+				entry.label.TextColor3 = color
+				entry.label.Visible = true
+			elseif entry.label then
+				entry.label.Visible = false
 			end
 		end
 
@@ -681,4 +800,12 @@ local function startMinimap()
 end
 
 startMinimap()
+
+UT.cleanupMap = function()
+	clearInteractables()
+	if UT.mapConn then
+		UT.mapConn:Disconnect()
+		UT.mapConn = nil
+	end
+end
 
