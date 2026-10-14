@@ -653,6 +653,13 @@ local function resetAllToggles()
 	end
 end
 
+UT.setToggleState = function(btn, enabled)
+	local entry = toggleRegistry[btn]
+	if not entry then return end
+	entry.state.enabled = enabled == true
+	setButtonToggle(btn, entry.state.enabled)
+end
+
 UT.addTooltip = function(instance, text)
 	if not instance then return end
 	local tooltip = instance:FindFirstChild("TooltipLabel")

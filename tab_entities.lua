@@ -333,13 +333,14 @@ local function scanEntities()
 		eStatus.Text = "Waiting for lag recovery before scanning"
 		return
 	end
+	eStatus.Text = "Scanning workspace..."
 	clearEntities()
 	local found = {}
 	local seen = {}
 
 	if UT.safeMode then
 		local safeRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-		pcall(function()
+		local scanOk, scanError = pcall(function()
 			UT.forEachDescendant(workspace, function(obj)
 				local candidate = false
 				if obj:IsA("Model") and not isPlayerModel(obj) and not isPlayerRelated(obj) then
@@ -368,6 +369,11 @@ local function scanEntities()
 				end
 			end)
 		end)
+		if not scanOk then
+			eStatus.Text = "Entity scan failed: " .. tostring(scanError)
+			UT.finishHeavyWork()
+			return
+		end
 	else
 	local ok, descendants = pcall(function() return workspace:GetDescendants() end)
 	if ok then
@@ -523,7 +529,23 @@ local function scanEntities()
 	UT.finishHeavyWork()
 end
 
-eScan.MouseButton1Click:Connect(function() task.spawn(scanEntities) end)
+local entityScanBusy = false
+eScan.MouseButton1Click:Connect(function()
+	if entityScanBusy then return end
+	entityScanBusy = true
+	eScan.Text = "Scanning..."
+	eScan.Active = false
+	task.spawn(function()
+		local ok, err = pcall(scanEntities)
+		if not ok then
+			eStatus.Text = "Entity scan failed: " .. tostring(err)
+			UT.finishHeavyWork()
+		end
+		entityScanBusy = false
+		eScan.Text = "Scan"
+		eScan.Active = true
+	end)
+end)
 eClear.MouseButton1Click:Connect(clearEntities)
 
 eHitboxBtn.MouseButton1Click:Connect(function()

@@ -31,6 +31,17 @@ local pFrame = tabFrames.Players
 local spectateTarget = nil
 UT.spectateConn = nil
 local oldCameraSubject = nil
+local oldCameraType = nil
+local oldCameraCFrame = nil
+local freeCamActive = false
+local freeCamPosition
+local freeCamYaw = 0
+local freeCamPitch = 0
+local freeCamKeys = {}
+local freeCamMouseHeld = false
+local oldMouseBehavior = nil
+local oldOcclusionMode = nil
+local cameraThroughWalls = false
 
 local spectateBtn = Instance.new("TextButton")
 spectateBtn.Size = UDim2.new(0, 100, 0, 22)
@@ -52,12 +63,153 @@ local function stopSpectating()
 		UT.spectateConn:Disconnect()
 		UT.spectateConn = nil
 	end
-	camera.CameraType = Enum.CameraType.Custom
-	if spectateTarget then camera.CameraSubject = oldCameraSubject or player.Character end
+	if spectateTarget then
+		camera.CameraSubject = oldCameraSubject or player.Character
+		camera.CameraType = oldCameraType or Enum.CameraType.Custom
+		if oldCameraCFrame and camera.CameraType == Enum.CameraType.Scriptable then
+			camera.CFrame = oldCameraCFrame
+		end
+	end
 	spectateTarget = nil
 	spectateBtn.Text = "Spectate: OFF"
 	spectateBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 end
+
+local function setCameraThroughWalls(enabled)
+	if enabled then
+		local ok, mode = pcall(function() return player.DevCameraOcclusionMode end)
+		if not ok then
+			notify("Camera", "Occlusion setting is unavailable in this client")
+			return false
+		end
+		oldOcclusionMode = mode
+		local setOk = pcall(function()
+			player.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
+		end)
+		if not setOk then
+			notify("Camera", "Could not change camera occlusion")
+			return false
+		end
+		cameraThroughWalls = true
+	else
+		if oldOcclusionMode then
+			pcall(function() player.DevCameraOcclusionMode = oldOcclusionMode end)
+		end
+		oldOcclusionMode = nil
+		cameraThroughWalls = false
+	end
+	return true
+end
+
+local freeCamButton = Instance.new("TextButton")
+freeCamButton.Size = UDim2.new(0, 88, 0, 22)
+freeCamButton.Position = UDim2.new(0, 104, 0, 0)
+freeCamButton.Text = "Free Cam: OFF"
+freeCamButton.TextColor3 = Color3.new(1, 1, 1)
+freeCamButton.BackgroundColor3 = Color3.fromRGB(42, 58, 66)
+freeCamButton.Font = Enum.Font.GothamBold
+freeCamButton.TextSize = 9
+freeCamButton.Parent = pFrame
+Instance.new("UICorner", freeCamButton).CornerRadius = UDim.new(0, 3)
+
+local cameraWallsButton = Instance.new("TextButton")
+cameraWallsButton.Size = UDim2.new(0, 112, 0, 22)
+cameraWallsButton.Position = UDim2.new(0, 196, 0, 0)
+cameraWallsButton.Text = "Wall Fade: OFF"
+cameraWallsButton.TextColor3 = Color3.new(1, 1, 1)
+cameraWallsButton.BackgroundColor3 = Color3.fromRGB(42, 58, 66)
+cameraWallsButton.Font = Enum.Font.GothamBold
+cameraWallsButton.TextSize = 9
+cameraWallsButton.Parent = pFrame
+Instance.new("UICorner", cameraWallsButton).CornerRadius = UDim.new(0, 3)
+if type(UT.addTooltip) == "function" then
+	UT.addTooltip(cameraWallsButton, "Use Roblox Invisicam to fade camera obstructions; it does not reveal hidden objects.")
+end
+
+local function stopFreeCam()
+	if not freeCamActive then return end
+	freeCamActive = false
+	if UT.freeCamRenderConn then UT.freeCamRenderConn:Disconnect(); UT.freeCamRenderConn = nil end
+	if UT.freeCamInputBeganConn then UT.freeCamInputBeganConn:Disconnect(); UT.freeCamInputBeganConn = nil end
+	if UT.freeCamInputChangedConn then UT.freeCamInputChangedConn:Disconnect(); UT.freeCamInputChangedConn = nil end
+	if UT.freeCamInputEndedConn then UT.freeCamInputEndedConn:Disconnect(); UT.freeCamInputEndedConn = nil end
+	UserInputService.MouseBehavior = oldMouseBehavior or Enum.MouseBehavior.Default
+	oldMouseBehavior = nil
+	camera.CameraType = oldCameraType or Enum.CameraType.Custom
+	camera.CameraSubject = oldCameraSubject or player.Character
+	freeCamButton.Text = "Free Cam: OFF"
+	freeCamButton.TextColor3 = Color3.new(1, 1, 1)
+end
+
+local function startFreeCam()
+	if UT.spectateConn then stopSpectating() end
+	oldCameraType = camera.CameraType
+	oldCameraSubject = camera.CameraSubject
+	oldCameraCFrame = camera.CFrame
+	oldMouseBehavior = UserInputService.MouseBehavior
+	freeCamPosition = camera.CFrame.Position
+	freeCamPitch, freeCamYaw = camera.CFrame:ToOrientation()
+	freeCamActive = true
+	camera.CameraType = Enum.CameraType.Scriptable
+	freeCamButton.Text = "Free Cam: ON"
+	freeCamButton.TextColor3 = Color3.fromRGB(100, 255, 150)
+	UT.freeCamInputBeganConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then return end
+		if input.UserInputType == Enum.UserInputType.MouseButton2 then
+			freeCamMouseHeld = true
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+		elseif input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.S
+			or input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Q or input.KeyCode == Enum.KeyCode.E
+			or input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.LeftControl then
+			freeCamKeys[input.KeyCode] = true
+		end
+	end)
+	UT.freeCamInputEndedConn = UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton2 then
+			freeCamMouseHeld = false
+			UserInputService.MouseBehavior = oldMouseBehavior or Enum.MouseBehavior.Default
+		elseif input.KeyCode then
+			freeCamKeys[input.KeyCode] = nil
+		end
+	end)
+	UT.freeCamInputChangedConn = UserInputService.InputChanged:Connect(function(input)
+		if freeCamMouseHeld and input.UserInputType == Enum.UserInputType.MouseMovement then
+			freeCamYaw = freeCamYaw - input.Delta.X * 0.0025
+			freeCamPitch = math.clamp(freeCamPitch - input.Delta.Y * 0.0025, -1.5, 1.5)
+		end
+	end)
+	UT.freeCamRenderConn = RunService.RenderStepped:Connect(function(deltaTime)
+		local rotation = CFrame.fromOrientation(freeCamPitch, freeCamYaw, 0)
+		local direction = Vector3.zero
+		if freeCamKeys[Enum.KeyCode.W] then direction = direction + rotation.LookVector end
+		if freeCamKeys[Enum.KeyCode.S] then direction = direction - rotation.LookVector end
+		if freeCamKeys[Enum.KeyCode.D] then direction = direction + rotation.RightVector end
+		if freeCamKeys[Enum.KeyCode.A] then direction = direction - rotation.RightVector end
+		if freeCamKeys[Enum.KeyCode.E] then direction = direction + Vector3.yAxis end
+		if freeCamKeys[Enum.KeyCode.Q] then direction = direction - Vector3.yAxis end
+		local speed = freeCamKeys[Enum.KeyCode.LeftShift] and 80 or 32
+		if freeCamKeys[Enum.KeyCode.LeftControl] then speed = 12 end
+		if direction.Magnitude > 0 then
+			freeCamPosition = freeCamPosition + direction.Unit * speed * deltaTime
+		end
+		camera.CFrame = CFrame.new(freeCamPosition) * rotation
+		camera.Focus = CFrame.new(freeCamPosition + rotation.LookVector * 512)
+	end)
+end
+
+freeCamButton.MouseButton1Click:Connect(function()
+	if freeCamActive then
+		stopFreeCam()
+	else
+		startFreeCam()
+	end
+end)
+
+cameraWallsButton.MouseButton1Click:Connect(function()
+	if setCameraThroughWalls(not cameraThroughWalls) then
+		cameraWallsButton.Text = "Wall Fade: " .. (cameraThroughWalls and "ON" or "OFF")
+	end
+end)
 
 local playerInfo = Instance.new("TextLabel")
 playerInfo.Size = UDim2.new(0, 304, 0, 64)

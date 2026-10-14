@@ -171,8 +171,12 @@ local function onCharacterAdded(character)
 	local humanoid = character:WaitForChild("Humanoid", 5)
 	if not humanoid then return end
 	captureDefaultStats(humanoid)
-	speedBox.Text = tostring(defaultWalkSpeed)
-	jumpBox.Text = tostring(humanoid.UseJumpPower and defaultJumpPower or defaultJumpHeight)
+	local speed = tonumber(speedBox.Text)
+	local jump = tonumber(jumpBox.Text)
+	if speed then humanoid.WalkSpeed = speed end
+	if jump then
+		if humanoid.UseJumpPower then humanoid.JumpPower = jump else humanoid.JumpHeight = jump end
+	end
 	local root = character:FindFirstChild("HumanoidRootPart")
 	movementStatus.Text = root and string.format("Character ready | Position: %.1f, %.1f, %.1f", root.Position.X, root.Position.Y, root.Position.Z) or "Character ready | Position unavailable"
 end
@@ -301,36 +305,18 @@ end)
 
 UT.invincibilityConn = nil
 makeToggle(mFrame, "Invincibility", 210, function(enabled)
-	local char = player.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	if enabled then
-		if hrp then
-			if hum then
-				hum.PlatformStand = true
-				hum.AutoRotate = false
+		if UT.invincibilityConn then UT.invincibilityConn:Disconnect() end
+		UT.invincibilityConn = RunService.Heartbeat:Connect(function()
+			local activeChar = player.Character
+			local activeHum = activeChar and activeChar:FindFirstChildOfClass("Humanoid")
+			if activeHum and activeHum.Health > 0 and activeHum.Health < activeHum.MaxHealth then
+				activeHum.Health = activeHum.MaxHealth
 			end
-			UT.invincibilityConn = RunService.RenderStepped:Connect(function()
-				local activeChar = player.Character
-				local root = activeChar and activeChar:FindFirstChild("HumanoidRootPart")
-				local activeHum = activeChar and activeChar:FindFirstChildOfClass("Humanoid")
-				if root then
-					root.CFrame = CFrame.new(root.Position + Vector3.new(0, -999, 0), camera.CFrame.LookVector)
-				end
-				if activeHum then
-					activeHum.PlatformStand = true
-					activeHum.AutoRotate = false
-					activeHum.Health = activeHum.MaxHealth
-				end
-			end)
-		end
-		notify("Invincibility", "Body parked underground while your camera and movement stay active.")
+		end)
+		notify("Invincibility", "Health monitor enabled; character position and camera are unchanged.")
 	else
 		if UT.invincibilityConn then UT.invincibilityConn:Disconnect(); UT.invincibilityConn = nil end
-		if hum then
-			hum.PlatformStand = false
-			hum.AutoRotate = true
-		end
 	end
 end)
 
@@ -865,22 +851,15 @@ for idx, name in ipairs(noclipMethods) do
 	noclipBtns[idx] = btn
 end
 
--- Auto-disable noclip + all toggles on death (fixes stuck settings)
+-- Disable only noclip methods on death; preserve the other selected toggles.
 player.CharacterAdded:Connect(function()
 	clearNoclip()
-	resetAllToggles()
+	for _, button in pairs(noclipBtns) do
+		if UT.setToggleState then UT.setToggleState(button, false) end
+	end
 end)
 
--- Re-apply speed/jump on respawn
-player.CharacterAdded:Connect(function(char)
-	local hum = char:WaitForChild("Humanoid")
-	local s = tonumber(speedBox.Text) or 50
-	local j = tonumber(jumpBox.Text) or 50
-	hum.WalkSpeed = s
-	hum.JumpPower = j
-end)
-
-notify("Ultimate Toolkit", "Loaded v5+++! Lag Spike + 3-col Noclip + Reset-on-Death + Near-only X-Ray + Repel + Interactables TP + Potato Mode.")
+notify("Ultimate Toolkit", "Loaded v5+++! Entity scanner, movement settings, and respawn handling ready.")
 
 -- export for cleanup.lua (X button)
 UT.clearNoclip = clearNoclip
