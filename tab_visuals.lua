@@ -46,6 +46,7 @@ local espSettings = {
 	HighlightPlayers = false,
 	HighlightNPCs = false,
 	HighlightInteractables = false,
+	MaxRange = 250,
 }
 
 UT.drawings = {}
@@ -116,6 +117,7 @@ end
 
 local function updatePlayerEsp()
 	if not drawingSupported then return end
+	local maxRange = espSettings.MaxRange or (UT.laggyPotatoMode and 80 or UT.potatoMode and 120 or 250)
 	for plr, objs in pairs(UT.drawings) do
 		if not plr.Parent then
 			removePlayerEsp(plr)
@@ -132,6 +134,13 @@ local function updatePlayerEsp()
 			continue
 		end
 		if espSettings.TeamCheck and plr.Team == player.Team then
+			objs.Box.Visible = false
+			objs.Tracer.Visible = false
+			objs.Name.Visible = false
+			continue
+		end
+		local distToCam = (head.Position - camera.CFrame.Position).Magnitude
+		if distToCam > maxRange then
 			objs.Box.Visible = false
 			objs.Tracer.Visible = false
 			objs.Name.Visible = false
@@ -304,7 +313,7 @@ UT.xrayToken = nil
 makeToggle(vFrame, "X-Ray", 200, function(enabled)
 	if enabled then
 		local parts = {}
-		local scanRange = UT.potatoMode and 100 or 150
+		local scanRange = UT.laggyPotatoMode and 40 or (UT.potatoMode and 100 or 150)
 		local function rebuild()
 			parts = {}
 			local char = player.Character
@@ -380,9 +389,28 @@ makeToggle(vFrame, "X-Ray", 200, function(enabled)
 	end
 end)
 
+local espRangeBox = Instance.new("TextBox")
+espRangeBox.Size = UDim2.new(0, 150, 0, 22)
+espRangeBox.Position = UDim2.new(0, 0, 0, 330)
+espRangeBox.PlaceholderText = "ESP range"
+espRangeBox.Text = tostring(espSettings.MaxRange)
+espRangeBox.TextColor3 = Color3.new(1, 1, 1)
+espRangeBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+espRangeBox.Font = Enum.Font.Gotham
+espRangeBox.TextSize = 10
+espRangeBox.Parent = vFrame
+Instance.new("UICorner", espRangeBox).CornerRadius = UDim.new(0, 4)
+espRangeBox.FocusLost:Connect(function()
+	local v = tonumber(espRangeBox.Text)
+	if v and v > 0 then
+		espSettings.MaxRange = math.clamp(v, 25, 2000)
+		espRangeBox.Text = tostring(espSettings.MaxRange)
+	end
+end)
+
 local targetPlayerBox = Instance.new("TextBox")
 targetPlayerBox.Size = UDim2.new(0, 220, 0, 22)
-targetPlayerBox.Position = UDim2.new(0, 0, 0, 238)
+targetPlayerBox.Position = UDim2.new(0, 0, 0, 360)
 targetPlayerBox.PlaceholderText = "Player name for target ESP"
 targetPlayerBox.Text = ""
 targetPlayerBox.TextColor3 = Color3.new(1, 1, 1)
@@ -394,7 +422,7 @@ Instance.new("UICorner", targetPlayerBox).CornerRadius = UDim.new(0, 4)
 
 local targetPlayerEspButton = Instance.new("TextButton")
 targetPlayerEspButton.Size = UDim2.new(0, 130, 0, 22)
-targetPlayerEspButton.Position = UDim2.new(0, 230, 0, 238)
+targetPlayerEspButton.Position = UDim2.new(0, 230, 0, 360)
 targetPlayerEspButton.Text = "Target ESP: OFF"
 targetPlayerEspButton.TextColor3 = Color3.new(1, 1, 1)
 targetPlayerEspButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)

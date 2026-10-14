@@ -283,8 +283,9 @@ local tabForModule = {
 
 -- Low Lag Mode: scans yield across frames + capped results
 -- Potato Mode: stacks on top of Low Lag Mode, tiny scans + near-only
-UT.lowLagMode = UT.lowLagMode == true
-UT.potatoMode = UT.potatoMode == true
+UT.laggyPotatoMode = UT.laggyPotatoMode == true
+UT.lowLagMode = UT.lowLagMode == true or UT.laggyPotatoMode
+UT.potatoMode = UT.potatoMode == true or UT.laggyPotatoMode
 UT.safeMode = UT.safeMode == true
 UT.cancelHeavyWork = false
 UT.lagDetected = false
@@ -296,19 +297,22 @@ local function lagYield()
 	if UT.lowLagMode then RunService.Heartbeat:Wait() end
 end
 local function llYieldStep()
-	return UT.potatoMode and 250 or 1000
+	return UT.laggyPotatoMode and 500 or (UT.potatoMode and 250 or 1000)
 end
 local function llBtnStep()
-	return UT.potatoMode and 10 or 25
+	return UT.laggyPotatoMode and 15 or (UT.potatoMode and 10 or 25)
 end
 local function llCap(n)
+	if UT.laggyPotatoMode then
+		return math.max(25, math.floor(n / 5))
+	end
 	return UT.lowLagMode and (UT.potatoMode and math.max(25, math.floor(n / 3)) or n) or math.huge
 end
 
 local function forEachDescendant(root, callback)
 	local stack = root:GetChildren()
 	local processed = 0
-	local yieldEvery = UT.safeMode and 75 or (UT.potatoMode and 150 or 500)
+	local yieldEvery = UT.laggyPotatoMode and 300 or (UT.safeMode and 75 or (UT.potatoMode and 150 or 500))
 	while #stack > 0 do
 		if UT.cancelHeavyWork then return processed, false end
 		local instance = stack[#stack]

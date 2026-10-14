@@ -204,22 +204,29 @@ makeToggle(miscFrame, "Item Magnet", 170, function(enabled)
 end)
 
 makeToggle(miscFrame, "Low Lag Mode", 200, function(enabled)
-	UT.lowLagMode = enabled
+	UT.lowLagMode = enabled or UT.laggyPotatoMode
 	notify("Low Lag Mode", enabled
 		and "ON - scans yield per frame, results capped"
 		or "OFF - full scans (may hitch)")
 end)
 
 makeToggle(miscFrame, "Potato Mode (laggy PC)", 230, function(enabled)
-	UT.potatoMode = enabled
+	UT.potatoMode = enabled or UT.laggyPotatoMode
 	notify("Potato Mode", enabled
 		and "ON - tiny scans, near-only, extra yields (stacks with Low Lag)"
 		or "OFF")
 end)
 
+makeToggle(miscFrame, "Laggy Potato Mode", 260, function(enabled)
+	UT.laggyPotatoMode = enabled
+	UT.lowLagMode = enabled or UT.lowLagMode
+	UT.potatoMode = enabled or UT.potatoMode
+	notify("Laggy Potato Mode", enabled and "ON - strips heavy visuals and scans to a tiny budget" or "OFF")
+end)
+
 local rejoinBtn = Instance.new("TextButton")
 rejoinBtn.Size = UDim2.new(1, 0, 0, 26)
-rejoinBtn.Position = UDim2.new(0, 0, 0, 260)
+rejoinBtn.Position = UDim2.new(0, 0, 0, 290)
 rejoinBtn.Text = "Rejoin Server"
 rejoinBtn.TextColor3 = Color3.new(1,1,1)
 rejoinBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 255)
@@ -234,7 +241,7 @@ end)
 
 local hopBtn = Instance.new("TextButton")
 hopBtn.Size = UDim2.new(1, 0, 0, 26)
-hopBtn.Position = UDim2.new(0, 0, 0, 290)
+hopBtn.Position = UDim2.new(0, 0, 0, 320)
 hopBtn.Text = "Server Hop"
 hopBtn.TextColor3 = Color3.new(1,1,1)
 hopBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 180)

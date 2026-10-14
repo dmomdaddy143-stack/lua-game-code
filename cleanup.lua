@@ -35,6 +35,7 @@ local shutDown = false
 UT.shutdown = function()
 	if shutDown then return end
 	shutDown = true
+	if UT.hotkeyConnection then UT.hotkeyConnection:Disconnect() end
 	if UT.cleanupBring then pcall(UT.cleanupBring) end
 	if UT.cleanupMap then pcall(UT.cleanupMap) end
 	if UT.cleanupTargetPlayerEsp then pcall(UT.cleanupTargetPlayerEsp) end
@@ -52,6 +53,7 @@ UT.shutdown = function()
 	if UT.reachConn then UT.reachConn:Disconnect() end
 	if UT.xrayConn then UT.xrayConn:Disconnect() end
 	UT.xrayToken = nil
+	if UT.invincibilityConn then UT.invincibilityConn:Disconnect() end
 	if UT.mapConn then UT.mapConn:Disconnect() end
 	if UT.magnetConn then UT.magnetConn:Disconnect() end
 	if UT.spectateConn then UT.spectateConn:Disconnect() end

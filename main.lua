@@ -49,17 +49,29 @@ local Players = game:GetService("Players")
 local bootRequested = false
 local safeModeRequested = false
 local pickerOpen = false
+local lastShiftQAt = 0
 local hotkeyConnection = UserInputService.InputBegan:Connect(function(input)
 	local shiftHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
-	if not loaderReady and not pickerOpen and shiftHeld then
+	if not pickerOpen and shiftHeld then
 		if input.KeyCode == Enum.KeyCode.Q then
-			safeModeRequested = true
-			bootRequested = false
+			local now = os.clock()
+			if now - lastShiftQAt < 0.45 then
+				if UT.shutdown then pcall(UT.shutdown) end
+				return
+			end
+			lastShiftQAt = now
+			if not loaderReady then
+				safeModeRequested = true
+				bootRequested = false
+			end
 		elseif input.KeyCode == Enum.KeyCode.X then
-			bootRequested = true
+			if not loaderReady then
+				bootRequested = true
+			end
 		end
 	end
 end)
+UT.hotkeyConnection = hotkeyConnection
 
 local function showBootPicker(loadedModules)
 	pickerOpen = true
@@ -345,6 +357,5 @@ for index, name in ipairs(FILES) do
 end
 
 loaderReady = true
-hotkeyConnection:Disconnect()
 if UT.finishModuleLoading then UT.finishModuleLoading() end
 notify("Ultimate Toolkit", "All modules loaded!")

@@ -293,8 +293,43 @@ makeToggle(mFrame, "God Mode", 180, function(enabled)
 	end
 end)
 
+UT.invincibilityConn = nil
+makeToggle(mFrame, "Invincibility", 210, function(enabled)
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if enabled then
+		if hrp then
+			if hum then
+				hum.PlatformStand = true
+				hum.AutoRotate = false
+			end
+			UT.invincibilityConn = RunService.RenderStepped:Connect(function()
+				local activeChar = player.Character
+				local root = activeChar and activeChar:FindFirstChild("HumanoidRootPart")
+				local activeHum = activeChar and activeChar:FindFirstChildOfClass("Humanoid")
+				if root then
+					root.CFrame = CFrame.new(root.Position + Vector3.new(0, -999, 0), camera.CFrame.LookVector)
+				end
+				if activeHum then
+					activeHum.PlatformStand = true
+					activeHum.AutoRotate = false
+					activeHum.Health = activeHum.MaxHealth
+				end
+			end)
+		end
+		notify("Invincibility", "Body parked underground while your camera and movement stay active.")
+	else
+		if UT.invincibilityConn then UT.invincibilityConn:Disconnect(); UT.invincibilityConn = nil end
+		if hum then
+			hum.PlatformStand = false
+			hum.AutoRotate = true
+		end
+	end
+end)
+
 -- No Fall
-makeToggle(mFrame, "No Fall", 210, function(enabled)
+makeToggle(mFrame, "No Fall", 240, function(enabled)
 	if enabled then
 		RunService.Heartbeat:Connect(function()
 			local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
