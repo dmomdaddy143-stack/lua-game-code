@@ -400,7 +400,6 @@ searchBox.Font = Enum.Font.Gotham
 searchBox.TextSize = 10
 searchBox.Parent = frame
 Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
-UT.addTooltip(searchBox, "Search by tab or feature keyword, like Move, ESP, or Map.")
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local query = searchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
@@ -684,6 +683,8 @@ UT.addTooltip = function(instance, text)
 	end)
 	return label
 end
+
+UT.addTooltip(searchBox, "Search by tab or feature keyword, like Move, ESP, or Map.")
 
 -- ============================================
 -- REUSABLE DROPDOWN COMPONENT

@@ -400,7 +400,9 @@ espRangeBox.Font = Enum.Font.Gotham
 espRangeBox.TextSize = 10
 espRangeBox.Parent = vFrame
 Instance.new("UICorner", espRangeBox).CornerRadius = UDim.new(0, 4)
-UT.addTooltip(espRangeBox, "Type the max ESP distance in studs. Higher values show more enemies and players.")
+if type(UT.addTooltip) == "function" then
+	UT.addTooltip(espRangeBox, "Type the max ESP distance in studs. Higher values show more enemies and players.")
+end
 espRangeBox.FocusLost:Connect(function()
 	local v = tonumber(espRangeBox.Text)
 	if v and v > 0 then
@@ -420,7 +422,9 @@ targetPlayerBox.Font = Enum.Font.Gotham
 targetPlayerBox.TextSize = 10
 targetPlayerBox.Parent = vFrame
 Instance.new("UICorner", targetPlayerBox).CornerRadius = UDim.new(0, 4)
-UT.addTooltip(targetPlayerBox, "Type the exact player name or display name for target ESP.")
+if type(UT.addTooltip) == "function" then
+	UT.addTooltip(targetPlayerBox, "Type the exact player name or display name for target ESP.")
+end
 
 local targetPlayerEspButton = Instance.new("TextButton")
 targetPlayerEspButton.Size = UDim2.new(0, 130, 0, 22)

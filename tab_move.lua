@@ -47,7 +47,9 @@ speedBox.Font = Enum.Font.Gotham
 speedBox.TextSize = 11
 speedBox.Parent = mFrame
 Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 4)
-UT.addTooltip(speedBox, "Type a walk speed value here, such as 50, 100, or 200.")
+if type(UT.addTooltip) == "function" then
+	UT.addTooltip(speedBox, "Type a walk speed value here, such as 50, 100, or 200.")
+end
 
 local defaultSpeedButton = Instance.new("TextButton")
 defaultSpeedButton.Size = UDim2.new(0, 72, 0, 22)
@@ -82,7 +84,9 @@ jumpBox.Font = Enum.Font.Gotham
 jumpBox.TextSize = 11
 jumpBox.Parent = mFrame
 Instance.new("UICorner", jumpBox).CornerRadius = UDim.new(0, 4)
-UT.addTooltip(jumpBox, "Type a jump power or jump height value here.")
+if type(UT.addTooltip) == "function" then
+	UT.addTooltip(jumpBox, "Type a jump power or jump height value here.")
+end
 
 local defaultJumpButton = Instance.new("TextButton")
 defaultJumpButton.Size = UDim2.new(0, 72, 0, 22)
