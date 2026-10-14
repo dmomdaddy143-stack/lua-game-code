@@ -641,7 +641,7 @@ local function resetAllToggles()
 end
 
 UT.addTooltip = function(instance, text)
-	if not instance or not instance:IsA then return end
+	if not instance then return end
 	local tooltip = instance:FindFirstChild("TooltipLabel")
 	if tooltip then tooltip:Destroy() end
 	local label = Instance.new("TextLabel")
