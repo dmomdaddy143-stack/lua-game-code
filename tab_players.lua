@@ -33,6 +33,9 @@ UT.spectateConn = nil
 local oldCameraSubject = nil
 local oldCameraType = nil
 local oldCameraCFrame = nil
+local spectateYaw = 0
+local spectatePitch = 0
+local spectateMouseHeld = false
 local freeCamActive = false
 local freeCamPosition
 local freeCamYaw = 0
@@ -63,6 +66,10 @@ local function stopSpectating()
 		UT.spectateConn:Disconnect()
 		UT.spectateConn = nil
 	end
+	if UT.spectateInputBeganConn then UT.spectateInputBeganConn:Disconnect(); UT.spectateInputBeganConn = nil end
+	if UT.spectateInputEndedConn then UT.spectateInputEndedConn:Disconnect(); UT.spectateInputEndedConn = nil end
+	if UT.spectateInputChangedConn then UT.spectateInputChangedConn:Disconnect(); UT.spectateInputChangedConn = nil end
+	UserInputService.MouseBehavior = oldMouseBehavior or Enum.MouseBehavior.Default
 	if spectateTarget then
 		camera.CameraSubject = oldCameraSubject or player.Character
 		camera.CameraType = oldCameraType or Enum.CameraType.Custom
@@ -124,6 +131,7 @@ cameraWallsButton.Parent = pFrame
 Instance.new("UICorner", cameraWallsButton).CornerRadius = UDim.new(0, 3)
 if type(UT.addTooltip) == "function" then
 	UT.addTooltip(cameraWallsButton, "Use Roblox Invisicam to fade camera obstructions; it does not reveal hidden objects.")
+	UT.addTooltip(freeCamButton, "WASD move, Q/E rise or lower, Shift speed up, Ctrl slow down, hold right mouse to look around.")
 end
 
 local function stopFreeCam()
@@ -133,6 +141,8 @@ local function stopFreeCam()
 	if UT.freeCamInputBeganConn then UT.freeCamInputBeganConn:Disconnect(); UT.freeCamInputBeganConn = nil end
 	if UT.freeCamInputChangedConn then UT.freeCamInputChangedConn:Disconnect(); UT.freeCamInputChangedConn = nil end
 	if UT.freeCamInputEndedConn then UT.freeCamInputEndedConn:Disconnect(); UT.freeCamInputEndedConn = nil end
+	freeCamKeys = {}
+	freeCamMouseHeld = false
 	UserInputService.MouseBehavior = oldMouseBehavior or Enum.MouseBehavior.Default
 	oldMouseBehavior = nil
 	camera.CameraType = oldCameraType or Enum.CameraType.Custom
@@ -309,8 +319,14 @@ spectateBtn.MouseButton1Click:Connect(function()
 		end
 		for _, p in ipairs(Players:GetPlayers()) do
 			if p.Name == selectedPlayerName and p ~= player then
+				if freeCamActive then stopFreeCam() end
 				spectateTarget = p
 				oldCameraSubject = camera.CameraSubject
+				oldCameraType = camera.CameraType
+				oldCameraCFrame = camera.CFrame
+				oldMouseBehavior = UserInputService.MouseBehavior
+				spectatePitch, spectateYaw = camera.CFrame:ToOrientation()
+				local distance = 26
 				local function updateCam()
 					if not spectateTarget or not spectateTarget.Character then
 						stopSpectating()
@@ -319,15 +335,30 @@ spectateBtn.MouseButton1Click:Connect(function()
 					local targetChar = spectateTarget.Character
 					local root = targetChar:FindFirstChild("HumanoidRootPart")
 					if not root then return end
-					local targetPos = root.Position
-					local playerChar = player.Character
-					local playerRoot = playerChar and playerChar:FindFirstChild("HumanoidRootPart")
-					if playerRoot then
-						playerRoot.CFrame = CFrame.new(targetPos + Vector3.new(0, 38, 0))
-					end
+					local targetPos = root.Position + Vector3.new(0, 2, 0)
+					local orbit = CFrame.fromOrientation(spectatePitch, spectateYaw, 0)
 					camera.CameraType = Enum.CameraType.Scriptable
-					camera.CFrame = CFrame.new(targetPos + Vector3.new(0, 18, 26), targetPos + Vector3.new(0, 2, 0))
+					camera.CFrame = CFrame.lookAt(targetPos - orbit.LookVector * distance, targetPos)
+					camera.Focus = CFrame.new(targetPos)
 				end
+				UT.spectateInputBeganConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+					if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton2 then
+						spectateMouseHeld = true
+						UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+					end
+				end)
+				UT.spectateInputEndedConn = UserInputService.InputEnded:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton2 then
+						spectateMouseHeld = false
+						UserInputService.MouseBehavior = oldMouseBehavior or Enum.MouseBehavior.Default
+					end
+				end)
+				UT.spectateInputChangedConn = UserInputService.InputChanged:Connect(function(input)
+					if spectateMouseHeld and input.UserInputType == Enum.UserInputType.MouseMovement then
+						spectateYaw = spectateYaw - input.Delta.X * 0.0025
+						spectatePitch = math.clamp(spectatePitch - input.Delta.Y * 0.0025, -1.3, 1.3)
+					end
+				end)
 				updateCam()
 				UT.spectateConn = RunService.RenderStepped:Connect(updateCam)
 				spectateBtn.Text = "Spectate: ON"
@@ -339,6 +370,13 @@ spectateBtn.MouseButton1Click:Connect(function()
 		notify("Spectate", "Player not found!")
 	end
 end)
+
+UT.cleanupPlayerCamera = function()
+	stopFreeCam()
+	if spectateTarget then stopSpectating() end
+	if cameraThroughWalls then setCameraThroughWalls(false) end
+	UserInputService.MouseBehavior = oldMouseBehavior or Enum.MouseBehavior.Default
+end
 
 local pSearch = Instance.new("TextBox")
 pSearch.Size = UDim2.new(0, 140, 0, 18)
@@ -534,8 +572,8 @@ local function refreshPlrs()
 			local tChar = p.Character
 			local tHRP = tChar and tChar:FindFirstChild("HumanoidRootPart")
 			if hrp and tHRP then
-				hrp.CFrame = tHRP.CFrame + Vector3.new(0, 3, 0)
-				notify("TP", "Teleported to " .. p.Name)
+				local ok, reason = UT.safeTeleportTo(tHRP.Position + tHRP.CFrame.LookVector * 4)
+				notify("TP", ok and ("Teleported near " .. p.Name) or reason)
 			else
 				notify("TP", p.Name .. " has no character")
 			end

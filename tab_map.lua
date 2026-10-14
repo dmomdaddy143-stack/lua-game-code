@@ -233,8 +233,8 @@ local function tpToInteractable(holder)
 	if not hrp then return end
 	local part = getInteractablePart(holder)
 	if part then
-		hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
-		notify("Interact TP", holder.Name)
+		local ok, reason = UT.safeTeleportTo(part.Position + part.CFrame.LookVector * 4)
+		notify("Interact TP", ok and holder.Name or reason)
 	else
 		notify("Interact TP", "No part found for " .. holder.Name)
 	end
@@ -638,8 +638,8 @@ mapCanvas.InputBegan:Connect(function(input)
 			end
 			local worldPos = hrp.Position + Vector3.new(dx, 0, dz)
 			if mapClickTp then
-				hrp.CFrame = CFrame.new(worldPos.X, hrp.Position.Y, worldPos.Z)
-				notify("Minimap", "Teleported to waypoint area")
+				local ok, reason = UT.safeTeleportTo(worldPos)
+				notify("Minimap", ok and "Teleported to waypoint area" or reason)
 			else
 				waypoint = worldPos
 				waypointGui.Position = UDim2.new(0, relX - 6, 0, relY - 6)

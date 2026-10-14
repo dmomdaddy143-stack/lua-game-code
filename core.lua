@@ -905,6 +905,27 @@ UT.isInChar = isInChar
 UT.isPlayerModel = isPlayerModel
 UT.isPlayerRelated = isPlayerRelated
 UT.getEntityPrimaryPart = getEntityPrimaryPart
+
+UT.safeTeleportTo = function(destination)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then return false, "Character is not ready" end
+	local position = typeof(destination) == "CFrame" and destination.Position or destination
+	if typeof(position) ~= "Vector3" then return false, "Invalid destination" end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = {character}
+	params.IgnoreWater = true
+	params.RespectCanCollide = true
+	local hit = workspace:Raycast(position + Vector3.new(0, 8, 0), Vector3.new(0, -56, 0), params)
+	if not hit or hit.Position.Y < position.Y - 24 then
+		return false, "No nearby floor; teleport canceled"
+	end
+	local safePosition = Vector3.new(position.X, hit.Position.Y + 3, position.Z)
+	local yaw = math.rad(root.Orientation.Y)
+	character:PivotTo(CFrame.new(safePosition) * CFrame.Angles(0, yaw, 0))
+	return true
+end
 -- ============================================
 -- SHARED ENTITY/ITEM HELPERS (used by Items, Entities, Map tabs)
 -- ============================================

@@ -3,6 +3,7 @@
 -- ============================================================
 local UT = ...
 local Players = UT.Players
+local CollectionService = game:GetService("CollectionService")
 local RunService = UT.RunService
 local UserInputService = UT.UserInputService
 local Lighting = UT.Lighting
@@ -25,6 +26,18 @@ local drawingSupported = UT.drawingSupported
 local isPlayerModel = UT.isPlayerModel
 local isPlayerRelated = UT.isPlayerRelated
 local getEntityPrimaryPart = UT.getEntityPrimaryPart
+
+local function hasEntityTag(instance)
+	for _, tag in ipairs(CollectionService:GetTags(instance)) do
+		local lowered = tag:lower()
+		if lowered:find("npc", 1, true) or lowered:find("enemy", 1, true)
+			or lowered:find("entity", 1, true) or lowered:find("mob", 1, true)
+			or lowered:find("monster", 1, true) then
+			return true
+		end
+	end
+	return false
+end
 -- ============================================
 -- ENTITIES TAB (FIXED ESP + SCANNING)
 -- ============================================
@@ -294,8 +307,8 @@ local function makeEntityBtn(name, model)
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		local target = getEntityPrimaryPart(model)
 		if hrp and target then
-			hrp.CFrame = target.CFrame + Vector3.new(0, 5, 0)
-			notify("Entity", "Teleported to " .. model.Name)
+			local ok, reason = UT.safeTeleportTo(target.Position + target.CFrame.LookVector * 4)
+			notify("Entity", ok and ("Teleported near " .. model.Name) or reason)
 		else
 			notify("Entity", "No valid part found")
 		end
@@ -305,8 +318,8 @@ local function makeEntityBtn(name, model)
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		local target = getEntityPrimaryPart(model)
 		if hrp and target then
-			hrp.CFrame = target.CFrame + Vector3.new(0, 5, 0)
-			notify("Entity", "Teleported to " .. model.Name)
+			local ok, reason = UT.safeTeleportTo(target.Position + target.CFrame.LookVector * 4)
+			notify("Entity", ok and ("Teleported near " .. model.Name) or reason)
 		else
 			notify("Entity", "No valid part found")
 		end
@@ -353,7 +366,7 @@ local function scanEntities()
 						or nameLower:find("golem") or nameLower:find("villain") or nameLower:find("target")
 						or nameLower:find("dummy") or nameLower:find("training")
 					local hasHealth = obj:GetAttribute("Health") or obj:GetAttribute("HP") or obj:GetAttribute("MaxHealth")
-					candidate = (hasHumanoid or hasRoot or enemyLike or hasHealth)
+					candidate = (hasHumanoid or hasRoot or enemyLike or hasHealth or hasEntityTag(obj))
 						and obj:FindFirstChildWhichIsA("BasePart") ~= nil
 				elseif obj:IsA("BasePart") and not isPlayerRelated(obj) then
 					local nameLower = obj.Name:lower()
@@ -394,7 +407,7 @@ local function scanEntities()
 						or nameLower:find("hitbox") or nameLower:find("hurtbox")
 						or nameLower:find("dummy") or nameLower:find("training")
 					local attrHealth = obj:GetAttribute("Health") or obj:GetAttribute("HP") or obj:GetAttribute("MaxHealth")
-					if (hum or hrp or enemyLike or attrHealth) and obj:FindFirstChildWhichIsA("BasePart") then
+					if (hum or hrp or enemyLike or attrHealth or hasEntityTag(obj)) and obj:FindFirstChildWhichIsA("BasePart") then
 						seen[obj] = true
 						table.insert(found, obj)
 					end
@@ -415,7 +428,7 @@ local function scanEntities()
 				if obj:IsA("Model") and not seen[obj] and not isPlayerModel(obj) then
 					local hum = obj:FindFirstChildOfClass("Humanoid")
 					local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("UpperTorso")
-					if hum or hrp then
+					if hum or hrp or hasEntityTag(obj) then
 						seen[obj] = true
 						table.insert(found, obj)
 					end
@@ -434,7 +447,7 @@ local function scanEntities()
 						or nameLower:find("villain") or nameLower:find("target")
 						or nameLower:find("hitbox") or nameLower:find("hurtbox")
 						or nameLower:find("dummy") or nameLower:find("training")
-					if isEnemyLike then
+					if isEnemyLike or hasEntityTag(obj) then
 						local hasPart = obj:FindFirstChildWhichIsA("BasePart") ~= nil
 						if hasPart then
 							seen[obj] = true
@@ -472,6 +485,10 @@ local function scanEntities()
 				end
 			end
 		end
+	else
+		eStatus.Text = "Entity scan failed: " .. tostring(descendants)
+		UT.finishHeavyWork()
+		return
 	end
 	end
 

@@ -96,8 +96,8 @@ makeToggle(miscFrame, "Click TP (Ctrl+Click)", 50, function(enabled)
 				if hrp then
 					local mouse = player:GetMouse()
 					if mouse.Hit then
-						hrp.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0, 3, 0))
-						notify("Click TP", "Teleported!")
+						local ok, reason = UT.safeTeleportTo(mouse.Hit.Position)
+						notify("Click TP", ok and "Teleported!" or reason)
 					end
 				end
 			end

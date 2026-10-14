@@ -58,6 +58,14 @@ UT.shutdown = function()
 	if UT.xrayConn then UT.xrayConn:Disconnect() end
 	UT.xrayToken = nil
 	if UT.invincibilityConn then UT.invincibilityConn:Disconnect() end
+	if UT.cleanupPlayerCamera then pcall(UT.cleanupPlayerCamera) end
+	if UT.freeCamRenderConn then UT.freeCamRenderConn:Disconnect() end
+	if UT.freeCamInputBeganConn then UT.freeCamInputBeganConn:Disconnect() end
+	if UT.freeCamInputChangedConn then UT.freeCamInputChangedConn:Disconnect() end
+	if UT.freeCamInputEndedConn then UT.freeCamInputEndedConn:Disconnect() end
+	if UT.spectateInputBeganConn then UT.spectateInputBeganConn:Disconnect() end
+	if UT.spectateInputChangedConn then UT.spectateInputChangedConn:Disconnect() end
+	if UT.spectateInputEndedConn then UT.spectateInputEndedConn:Disconnect() end
 	if UT.mapConn then UT.mapConn:Disconnect() end
 	if UT.magnetConn then UT.magnetConn:Disconnect() end
 	if UT.spectateConn then UT.spectateConn:Disconnect() end
