@@ -52,6 +52,7 @@ local function stopSpectating()
 		UT.spectateConn:Disconnect()
 		UT.spectateConn = nil
 	end
+	camera.CameraType = Enum.CameraType.Custom
 	if spectateTarget then camera.CameraSubject = oldCameraSubject or player.Character end
 	spectateTarget = nil
 	spectateBtn.Text = "Spectate: OFF"
@@ -159,10 +160,21 @@ spectateBtn.MouseButton1Click:Connect(function()
 				spectateTarget = p
 				oldCameraSubject = camera.CameraSubject
 				local function updateCam()
-					if spectateTarget and spectateTarget.Character then
-						local hum = spectateTarget.Character:FindFirstChildOfClass("Humanoid")
-						if hum then camera.CameraSubject = hum end
+					if not spectateTarget or not spectateTarget.Character then
+						stopSpectating()
+						return
 					end
+					local targetChar = spectateTarget.Character
+					local root = targetChar:FindFirstChild("HumanoidRootPart")
+					if not root then return end
+					local targetPos = root.Position
+					local playerChar = player.Character
+					local playerRoot = playerChar and playerChar:FindFirstChild("HumanoidRootPart")
+					if playerRoot then
+						playerRoot.CFrame = CFrame.new(targetPos + Vector3.new(0, 38, 0))
+					end
+					camera.CameraType = Enum.CameraType.Scriptable
+					camera.CFrame = CFrame.new(targetPos + Vector3.new(0, 18, 26), targetPos + Vector3.new(0, 2, 0))
 				end
 				updateCam()
 				UT.spectateConn = RunService.RenderStepped:Connect(updateCam)

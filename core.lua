@@ -400,6 +400,7 @@ searchBox.Font = Enum.Font.Gotham
 searchBox.TextSize = 10
 searchBox.Parent = frame
 Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
+UT.addTooltip(searchBox, "Search by tab or feature keyword, like Move, ESP, or Map.")
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local query = searchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
@@ -620,6 +621,7 @@ local function makeToggle(parent, text, y, callback, size, pos)
 		callback(state.enabled)
 	end)
 	toggleRegistry[btn] = {state = state, callback = callback}
+	UT.addTooltip(btn, "Toggle " .. text .. " on or off.")
 	return btn
 end
 
@@ -637,6 +639,50 @@ local function resetAllToggles()
 			pcall(entry.callback, false)
 		end
 	end
+end
+
+UT.addTooltip = function(instance, text)
+	if not instance or not instance:IsA then return end
+	local tooltip = instance:FindFirstChild("TooltipLabel")
+	if tooltip then tooltip:Destroy() end
+	local label = Instance.new("TextLabel")
+	label.Name = "TooltipLabel"
+	label.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+	label.BorderSizePixel = 0
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 9
+	label.Text = tostring(text)
+	label.TextWrapped = true
+	label.AutomaticSize = Enum.AutomaticSize.XY
+	label.Size = UDim2.new(0, 180, 0, 0)
+	label.Visible = false
+	label.ZIndex = 500
+	label.Parent = frame
+	Instance.new("UICorner", label).CornerRadius = UDim.new(0, 6)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(100, 100, 110)
+	stroke.Thickness = 1
+	stroke.Parent = label
+	local function refreshTip()
+		if not label.Parent then return end
+		local posX = instance.AbsolutePosition.X + instance.AbsoluteSize.X + 12
+		local posY = instance.AbsolutePosition.Y
+		local maxX = frame.AbsoluteSize.X - label.AbsoluteSize.X - 12
+		local maxY = frame.AbsoluteSize.Y - label.AbsoluteSize.Y - 12
+		label.Position = UDim2.new(0, math.clamp(posX, 12, math.max(12, maxX)), 0, math.clamp(posY, 12, math.max(12, maxY)))
+	end
+	instance.MouseEnter:Connect(function()
+		refreshTip()
+		label.Visible = true
+	end)
+	instance.MouseMoved:Connect(function()
+		if label.Visible then refreshTip() end
+	end)
+	instance.MouseLeave:Connect(function()
+		label.Visible = false
+	end)
+	return label
 end
 
 -- ============================================

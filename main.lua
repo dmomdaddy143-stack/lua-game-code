@@ -23,6 +23,7 @@ local FILES = {
 }
 
 local UT = {}
+local TOOLKIT_VERSION = "v5.1"
 local CACHE_BUSTER = tostring(os.time()) .. "-" .. tostring(math.random(1, 1000000000))
 local loaderReady = false
 
@@ -284,21 +285,19 @@ UT.updateToolkit = function()
 		notify("Update Failed", tostring(source or "Could not fetch the latest loader"))
 		return
 	end
-
 	local chunk, loadErr = loadstring(source, "main.lua")
 	if not chunk then
 		notify("Update Failed", tostring(loadErr))
 		return
 	end
-
-	if UT.shutdown then
-		pcall(UT.shutdown)
-	elseif UT.gui then
-		UT.gui:Destroy()
-	end
+	if UT.shutdown then pcall(UT.shutdown) end
+	if UT.gui and UT.gui.Parent then UT.gui:Destroy() end
+	notify("Update", "Reloading toolkit " .. TOOLKIT_VERSION .. " from the latest main.lua")
 	task.spawn(function()
 		local started, startErr = pcall(chunk)
-		if not started then notify("Update Failed", tostring(startErr)) end
+		if not started then
+			notify("Update Failed", tostring(startErr))
+		end
 	end)
 end
 
