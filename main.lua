@@ -263,6 +263,10 @@ local function fetchSource(name)
 		return game:HttpGet(BASE_URL .. name .. "?v=" .. CACHE_BUSTER)
 	end)
 	if ok and type(source) == "string" and #source > 0 then
+		if name == "core.lua" then
+			source = source:gsub("if not instance or not instance:IsA then return end", "if not instance then return end")
+			source = source:gsub("UT%.addTooltip%(searchBox, \"Search by tab or feature keyword, like Move, ESP, or Map%.\"%)", "")
+		end
 		return source
 	end
 	-- Fall back to local modules only when GitHub cannot be reached.
