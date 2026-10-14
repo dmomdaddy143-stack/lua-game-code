@@ -35,9 +35,10 @@ speedLbl.BackgroundTransparency = 1
 speedLbl.Font = Enum.Font.Gotham
 speedLbl.TextSize = 10
 speedLbl.Parent = mFrame
+speedLbl.Size = UDim2.new(0, 220, 0, 16)
 
 local speedBox = Instance.new("TextBox")
-speedBox.Size = UDim2.new(1, -80, 0, 22)
+speedBox.Size = UDim2.new(0, 220, 0, 22)
 speedBox.Position = UDim2.new(0, 0, 0, 16)
 speedBox.Text = "50"
 speedBox.TextColor3 = Color3.new(1,1,1)
@@ -49,7 +50,7 @@ Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 4)
 
 local defaultSpeedButton = Instance.new("TextButton")
 defaultSpeedButton.Size = UDim2.new(0, 72, 0, 22)
-defaultSpeedButton.Position = UDim2.new(1, -72, 0, 16)
+defaultSpeedButton.Position = UDim2.new(0, 226, 0, 16)
 defaultSpeedButton.Text = "Default"
 defaultSpeedButton.TextColor3 = Color3.new(1, 1, 1)
 defaultSpeedButton.BackgroundColor3 = Color3.fromRGB(45, 65, 55)
@@ -60,17 +61,19 @@ Instance.new("UICorner", defaultSpeedButton).CornerRadius = UDim.new(0, 4)
 
 local jumpLbl = Instance.new("TextLabel")
 jumpLbl.Size = UDim2.new(1, 0, 0, 16)
-jumpLbl.Position = UDim2.new(0, 0, 0, 44)
+jumpLbl.Position = UDim2.new(0, 360, 0, 0)
 jumpLbl.Text = "Jump Power"
 jumpLbl.TextColor3 = Color3.fromRGB(180, 180, 180)
 jumpLbl.BackgroundTransparency = 1
 jumpLbl.Font = Enum.Font.Gotham
 jumpLbl.TextSize = 10
 jumpLbl.Parent = mFrame
+jumpLbl.Size = UDim2.new(0, 220, 0, 16)
+jumpLbl.Text = "Jump Power / Height"
 
 local jumpBox = Instance.new("TextBox")
-jumpBox.Size = UDim2.new(1, -80, 0, 22)
-jumpBox.Position = UDim2.new(0, 0, 0, 60)
+jumpBox.Size = UDim2.new(0, 220, 0, 22)
+jumpBox.Position = UDim2.new(0, 360, 0, 16)
 jumpBox.Text = "50"
 jumpBox.TextColor3 = Color3.new(1,1,1)
 jumpBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -81,7 +84,7 @@ Instance.new("UICorner", jumpBox).CornerRadius = UDim.new(0, 4)
 
 local defaultJumpButton = Instance.new("TextButton")
 defaultJumpButton.Size = UDim2.new(0, 72, 0, 22)
-defaultJumpButton.Position = UDim2.new(1, -72, 0, 60)
+defaultJumpButton.Position = UDim2.new(0, 586, 0, 16)
 defaultJumpButton.Text = "Default"
 defaultJumpButton.TextColor3 = Color3.new(1, 1, 1)
 defaultJumpButton.BackgroundColor3 = Color3.fromRGB(45, 65, 55)
@@ -89,6 +92,28 @@ defaultJumpButton.Font = Enum.Font.GothamBold
 defaultJumpButton.TextSize = 10
 defaultJumpButton.Parent = mFrame
 Instance.new("UICorner", defaultJumpButton).CornerRadius = UDim.new(0, 4)
+
+local movementStatus = Instance.new("TextLabel")
+movementStatus.Size = UDim2.new(1, -128, 0, 18)
+movementStatus.Position = UDim2.new(0, 0, 0, 44)
+movementStatus.BackgroundTransparency = 1
+movementStatus.Text = "Character: waiting for spawn"
+movementStatus.TextColor3 = Color3.fromRGB(185, 190, 195)
+movementStatus.Font = Enum.Font.Gotham
+movementStatus.TextSize = 10
+movementStatus.TextXAlignment = Enum.TextXAlignment.Left
+movementStatus.Parent = mFrame
+
+local resetStatsButton = Instance.new("TextButton")
+resetStatsButton.Size = UDim2.new(0, 122, 0, 20)
+resetStatsButton.Position = UDim2.new(1, -122, 0, 43)
+resetStatsButton.Text = "Reset stats"
+resetStatsButton.TextColor3 = Color3.new(1, 1, 1)
+resetStatsButton.BackgroundColor3 = Color3.fromRGB(45, 65, 55)
+resetStatsButton.Font = Enum.Font.GothamBold
+resetStatsButton.TextSize = 9
+resetStatsButton.Parent = mFrame
+Instance.new("UICorner", resetStatsButton).CornerRadius = UDim.new(0, 4)
 
 local defaultWalkSpeed = 16
 local defaultJumpPower = 50
@@ -131,6 +156,10 @@ end
 
 defaultSpeedButton.MouseButton1Click:Connect(resetWalkSpeed)
 defaultJumpButton.MouseButton1Click:Connect(resetJump)
+resetStatsButton.MouseButton1Click:Connect(function()
+	resetWalkSpeed()
+	resetJump()
+end)
 
 local function onCharacterAdded(character)
 	local humanoid = character:WaitForChild("Humanoid", 5)
@@ -138,6 +167,8 @@ local function onCharacterAdded(character)
 	captureDefaultStats(humanoid)
 	speedBox.Text = tostring(defaultWalkSpeed)
 	jumpBox.Text = tostring(humanoid.UseJumpPower and defaultJumpPower or defaultJumpHeight)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	movementStatus.Text = root and string.format("Character ready | Position: %.1f, %.1f, %.1f", root.Position.X, root.Position.Y, root.Position.Z) or "Character ready | Position unavailable"
 end
 
 local initialHumanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -146,11 +177,16 @@ if initialHumanoid then
 	jumpBox.Text = tostring(initialHumanoid.UseJumpPower and defaultJumpPower or defaultJumpHeight)
 end
 UT.statsCharacterConn = player.CharacterAdded:Connect(onCharacterAdded)
+UT.statsCharacterRemovingConn = player.CharacterRemoving:Connect(function()
+	movementStatus.Text = "Character respawning..."
+end)
 
 speedBox.FocusLost:Connect(applyStats)
 jumpBox.FocusLost:Connect(applyStats)
 
-UT.statsConn = RunService.Heartbeat:Connect(function()
+local movementStatusElapsed = 0
+UT.statsConn = RunService.Heartbeat:Connect(function(deltaTime)
+	movementStatusElapsed = movementStatusElapsed + deltaTime
 	local char = player.Character
 	if char then
 		local hum = char:FindFirstChildOfClass("Humanoid")
@@ -162,7 +198,14 @@ UT.statsConn = RunService.Heartbeat:Connect(function()
 				if hum.UseJumpPower and hum.JumpPower ~= j then hum.JumpPower = j end
 				if not hum.UseJumpPower and hum.JumpHeight ~= j then hum.JumpHeight = j end
 			end
+			if movementStatusElapsed >= 0.5 then
+				movementStatusElapsed = 0
+				local root = char:FindFirstChild("HumanoidRootPart")
+				movementStatus.Text = root and string.format("Character ready | Position: %.1f, %.1f, %.1f", root.Position.X, root.Position.Y, root.Position.Z) or "Character ready | Position unavailable"
+			end
 		end
+	else
+		movementStatus.Text = "Character respawning..."
 	end
 end)
 

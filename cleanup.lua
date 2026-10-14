@@ -41,6 +41,8 @@ UT.shutdown = function()
 	if UT.espConnection then UT.espConnection:Disconnect() end
 	if UT.statsConn then UT.statsConn:Disconnect() end
 	if UT.statsCharacterConn then UT.statsCharacterConn:Disconnect() end
+	if UT.statsCharacterRemovingConn then UT.statsCharacterRemovingConn:Disconnect() end
+	if UT.playerInfoConn then UT.playerInfoConn:Disconnect() end
 	if UT.cframeSpeedConn then UT.cframeSpeedConn:Disconnect() end
 	if UT.flyConn then UT.flyConn:Disconnect() end
 	if UT.autoFarmConn then UT.autoFarmConn:Disconnect() end

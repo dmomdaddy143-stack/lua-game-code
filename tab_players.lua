@@ -44,15 +44,110 @@ spectateBtn.Parent = pFrame
 Instance.new("UICorner", spectateBtn).CornerRadius = UDim.new(0, 3)
 
 local selectedPlayerName = nil
+local selectedPlayer
+local sortMode = "Name"
 
-spectateBtn.MouseButton1Click:Connect(function()
+local function stopSpectating()
 	if UT.spectateConn then
 		UT.spectateConn:Disconnect()
 		UT.spectateConn = nil
-		camera.CameraSubject = oldCameraSubject or player.Character
-		spectateBtn.Text = "Spectate: OFF"
-		spectateBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-		spectateTarget = nil
+	end
+	if spectateTarget then camera.CameraSubject = oldCameraSubject or player.Character end
+	spectateTarget = nil
+	spectateBtn.Text = "Spectate: OFF"
+	spectateBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+end
+
+local playerInfo = Instance.new("TextLabel")
+playerInfo.Size = UDim2.new(0, 304, 0, 64)
+playerInfo.Position = UDim2.new(0, 404, 0, 0)
+playerInfo.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+playerInfo.TextColor3 = Color3.fromRGB(215, 215, 220)
+playerInfo.Font = Enum.Font.Gotham
+playerInfo.TextSize = 10
+playerInfo.TextXAlignment = Enum.TextXAlignment.Left
+playerInfo.TextYAlignment = Enum.TextYAlignment.Top
+playerInfo.TextWrapped = true
+playerInfo.Text = "Select a player to inspect their account and character."
+playerInfo.Parent = pFrame
+Instance.new("UICorner", playerInfo).CornerRadius = UDim.new(0, 4)
+
+local function refreshPlayerInfo()
+	local target = selectedPlayer
+	if not target or not target.Parent then
+		playerInfo.Text = "Select a player to inspect their account and character."
+		return
+	end
+	local character = target.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local healthText = humanoid and (tostring(math.floor(humanoid.Health)) .. "/" .. tostring(math.floor(humanoid.MaxHealth))) or "Unavailable"
+	local positionText = root and string.format("%.1f, %.1f, %.1f", root.Position.X, root.Position.Y, root.Position.Z) or "Unavailable"
+	playerInfo.Text = target.Name .. " (" .. target.DisplayName .. ")\nUserId: " .. tostring(target.UserId)
+		.. "\nHealth: " .. healthText .. "\nPosition: " .. positionText
+end
+
+local function copyPlayerValue(value)
+	if type(setclipboard) == "function" then
+		local ok = pcall(setclipboard, tostring(value))
+		if ok then notify("Player Inspector", "Copied to clipboard") return end
+	end
+	playerInfo.Text = playerInfo.Text .. "\nClipboard API unavailable"
+end
+
+local copyNameButton = Instance.new("TextButton")
+copyNameButton.Size = UDim2.new(0, 88, 0, 22)
+copyNameButton.Position = UDim2.new(0, 404, 0, 70)
+copyNameButton.Text = "Copy name"
+copyNameButton.TextColor3 = Color3.new(1, 1, 1)
+copyNameButton.BackgroundColor3 = Color3.fromRGB(40, 55, 68)
+copyNameButton.Font = Enum.Font.GothamBold
+copyNameButton.TextSize = 9
+copyNameButton.Parent = pFrame
+Instance.new("UICorner", copyNameButton).CornerRadius = UDim.new(0, 3)
+copyNameButton.MouseButton1Click:Connect(function()
+	if selectedPlayer then copyPlayerValue(selectedPlayer.Name) else notify("Player Inspector", "Select a player first") end
+end)
+
+local copyIdButton = Instance.new("TextButton")
+copyIdButton.Size = UDim2.new(0, 88, 0, 22)
+copyIdButton.Position = UDim2.new(0, 496, 0, 70)
+copyIdButton.Text = "Copy UserId"
+copyIdButton.TextColor3 = Color3.new(1, 1, 1)
+copyIdButton.BackgroundColor3 = Color3.fromRGB(40, 55, 68)
+copyIdButton.Font = Enum.Font.GothamBold
+copyIdButton.TextSize = 9
+copyIdButton.Parent = pFrame
+Instance.new("UICorner", copyIdButton).CornerRadius = UDim.new(0, 3)
+copyIdButton.MouseButton1Click:Connect(function()
+	if selectedPlayer then copyPlayerValue(selectedPlayer.UserId) else notify("Player Inspector", "Select a player first") end
+end)
+
+local sortButton = Instance.new("TextButton")
+sortButton.Size = UDim2.new(0, 62, 0, 22)
+sortButton.Position = UDim2.new(0, 588, 0, 70)
+sortButton.Text = "Sort: Name"
+sortButton.TextColor3 = Color3.new(1, 1, 1)
+sortButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+sortButton.Font = Enum.Font.GothamBold
+sortButton.TextSize = 8
+sortButton.Parent = pFrame
+Instance.new("UICorner", sortButton).CornerRadius = UDim.new(0, 3)
+
+local refreshButton = Instance.new("TextButton")
+refreshButton.Size = UDim2.new(0, 52, 0, 22)
+refreshButton.Position = UDim2.new(0, 656, 0, 70)
+refreshButton.Text = "Refresh"
+refreshButton.TextColor3 = Color3.new(1, 1, 1)
+refreshButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+refreshButton.Font = Enum.Font.GothamBold
+refreshButton.TextSize = 8
+refreshButton.Parent = pFrame
+Instance.new("UICorner", refreshButton).CornerRadius = UDim.new(0, 3)
+
+spectateBtn.MouseButton1Click:Connect(function()
+	if UT.spectateConn then
+		stopSpectating()
 		notify("Spectate", "Stopped")
 	else
 		if not selectedPlayerName then
@@ -217,8 +312,23 @@ end
 local function refreshPlrs()
 	clearPlrs()
 	clearInv()
-	for _, p in ipairs(Players:GetPlayers()) do
-		if p == player then continue end
+	local targets = {}
+	for _, target in ipairs(Players:GetPlayers()) do
+		if target ~= player then table.insert(targets, target) end
+	end
+	if sortMode == "Distance" then
+		local ownRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		table.sort(targets, function(first, second)
+			local firstRoot = first.Character and first.Character:FindFirstChild("HumanoidRootPart")
+			local secondRoot = second.Character and second.Character:FindFirstChild("HumanoidRootPart")
+			local firstDistance = ownRoot and firstRoot and (ownRoot.Position - firstRoot.Position).Magnitude or math.huge
+			local secondDistance = ownRoot and secondRoot and (ownRoot.Position - secondRoot.Position).Magnitude or math.huge
+			return firstDistance == secondDistance and first.Name:lower() < second.Name:lower() or firstDistance < secondDistance
+		end)
+	else
+		table.sort(targets, function(first, second) return first.Name:lower() < second.Name:lower() end)
+	end
+	for _, p in ipairs(targets) do
 		local row = Instance.new("Frame")
 		row.Size = UDim2.new(1, -6, 0, 22)
 		row.BackgroundTransparency = 1
@@ -245,6 +355,8 @@ local function refreshPlrs()
 		Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 3)
 		nameBtn.MouseButton1Click:Connect(function()
 			selectedPlayerName = p.Name
+			selectedPlayer = p
+			refreshPlayerInfo()
 			for _, b in ipairs(p2Buttons) do
 				local child = b:FindFirstChildOfClass("TextButton")
 				if child then child.BackgroundColor3 = Color3.fromRGB(40, 40, 45) end
@@ -268,7 +380,28 @@ local function refreshPlrs()
 end
 
 Players.PlayerAdded:Connect(refreshPlrs)
-Players.PlayerRemoving:Connect(refreshPlrs)
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+	if leavingPlayer == selectedPlayer then
+		selectedPlayer = nil
+		selectedPlayerName = nil
+		refreshPlayerInfo()
+	end
+	if leavingPlayer == spectateTarget then stopSpectating() end
+	refreshPlrs()
+end)
+sortButton.MouseButton1Click:Connect(function()
+	sortMode = sortMode == "Name" and "Distance" or "Name"
+	sortButton.Text = "Sort: " .. sortMode
+	refreshPlrs()
+end)
+refreshButton.MouseButton1Click:Connect(refreshPlrs)
+UT.playerInfoConn = RunService.Heartbeat:Connect(function(deltaTime)
+	UT.playerInfoElapsed = (UT.playerInfoElapsed or 0) + deltaTime
+	if UT.playerInfoElapsed >= 0.5 then
+		UT.playerInfoElapsed = 0
+		refreshPlayerInfo()
+	end
+end)
 refreshPlrs()
 
 pSearch:GetPropertyChangedSignal("Text"):Connect(function()

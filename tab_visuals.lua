@@ -42,9 +42,50 @@ local espSettings = {
 	Name = false,
 	Tracer = false,
 	TeamCheck = false,
+	NameDistance = false,
+	HighlightPlayers = false,
+	HighlightNPCs = false,
+	HighlightInteractables = false,
 }
 
 UT.drawings = {}
+local playerHighlightMap = {}
+local npcHighlightMap = {}
+local interactableHighlightMap = {}
+
+local function ensureModelHighlight(model, color, keyMap)
+	if not model or not model.Parent then return end
+	if keyMap[model] then return end
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "ToolkitVisualHighlight"
+	highlight.Adornee = model
+	highlight.FillColor = color
+	highlight.FillTransparency = 0.6
+	highlight.OutlineColor = color
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = model
+	keyMap[model] = highlight
+end
+
+local function clearHighlightMap(map)
+	for model, highlight in pairs(map) do
+		if highlight and highlight.Parent then highlight:Destroy() end
+		map[model] = nil
+	end
+end
+
+local function updateNameLabel(plr, hum, headPos)
+	if not espSettings.Name then return nil end
+	local text = plr.Name
+	if espSettings.NameDistance and headPos then
+		local dist = math.floor((headPos.Position - camera.CFrame.Position).Magnitude)
+		text = text .. " [" .. dist .. "m]"
+	end
+	if hum and hum.Health > 0 then
+		text = text .. " [" .. math.floor(hum.Health) .. "]"
+	end
+	return text
+end
 
 local function createPlayerEsp(plr)
 	if not drawingSupported or UT.drawings[plr] then return end
@@ -120,7 +161,13 @@ local function updatePlayerEsp()
 			end
 			if espSettings.Name then
 				objs.Name.Position = Vector2.new(headPos.X, headPos.Y - 15)
-				objs.Name.Text = plr.Name .. " [" .. math.floor(hum.Health) .. "]"
+				local text = plr.Name
+				if espSettings.NameDistance then
+					local dist = math.floor((head.Position - camera.CFrame.Position).Magnitude)
+					text = text .. " [" .. dist .. "m]"
+				end
+				text = text .. " [" .. math.floor(hum.Health) .. "]"
+				objs.Name.Text = text
 				objs.Name.Color = color
 				objs.Name.Visible = true
 			else
@@ -139,9 +186,16 @@ for _, plr in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(function(plr)
 	if plr ~= player then createPlayerEsp(plr) end
+	if espSettings.HighlightPlayers and plr.Character then
+		ensureModelHighlight(plr.Character, Color3.fromRGB(120, 200, 255), playerHighlightMap)
+	end
 end)
 Players.PlayerRemoving:Connect(function(plr)
 	removePlayerEsp(plr)
+	if playerHighlightMap[plr.Character] then
+		playerHighlightMap[plr.Character]:Destroy()
+		playerHighlightMap[plr.Character] = nil
+	end
 end)
 
 makeToggle(vFrame, "Box ESP", 20, function(enabled)
@@ -163,10 +217,62 @@ makeToggle(vFrame, "Team Check", 110, function(enabled)
 	espSettings.TeamCheck = enabled
 end)
 
+makeToggle(vFrame, "Names + Dist", 140, function(enabled)
+	espSettings.NameDistance = enabled
+end)
+
+makeToggle(vFrame, "Highlight Players", 170, function(enabled)
+	espSettings.HighlightPlayers = enabled
+	if enabled then
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player and plr.Character then
+				ensureModelHighlight(plr.Character, Color3.fromRGB(120, 200, 255), playerHighlightMap)
+			end
+		end
+	else
+		clearHighlightMap(playerHighlightMap)
+	end
+end)
+
+makeToggle(vFrame, "Highlight NPCs", 200, function(enabled)
+	espSettings.HighlightNPCs = enabled
+	if not enabled then
+		clearHighlightMap(npcHighlightMap)
+		return
+	end
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("Model") and obj ~= player.Character and not Players:GetPlayerFromCharacter(obj) then
+			local nameLower = obj.Name:lower()
+			if nameLower:find("npc") or nameLower:find("enemy") or nameLower:find("mob") or nameLower:find("bot") then
+				ensureModelHighlight(obj, Color3.fromRGB(255, 140, 80), npcHighlightMap)
+			end
+		end
+	end
+end)
+
+makeToggle(vFrame, "Highlight Interactables", 230, function(enabled)
+	espSettings.HighlightInteractables = enabled
+	if not enabled then
+		clearHighlightMap(interactableHighlightMap)
+		return
+	end
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		local isPrompt = obj:IsA("ProximityPrompt") or obj:IsA("ClickDetector") or obj:IsA("Seat") or obj:IsA("DragDetector")
+		if isPrompt then
+			local target = obj.Parent or obj
+			if target and target:IsA("BasePart") then
+				ensureModelHighlight(target, Color3.fromRGB(80, 255, 160), interactableHighlightMap)
+			elseif target and target:IsA("Model") then
+				ensureModelHighlight(target, Color3.fromRGB(80, 255, 160), interactableHighlightMap)
+			end
+		end
+	end
+end)
+
 local origBrightness = Lighting.Brightness
 local origGlobalShadows = Lighting.GlobalShadows
 local origClockTime = Lighting.ClockTime
-makeToggle(vFrame, "Full Bright", 140, function(enabled)
+makeToggle(vFrame, "Full Bright", 260, function(enabled)
 	if enabled then
 		Lighting.Brightness = 10
 		Lighting.GlobalShadows = false
@@ -180,7 +286,7 @@ end)
 
 local origFogEnd = Lighting.FogEnd
 local origFogStart = Lighting.FogStart
-makeToggle(vFrame, "No Fog", 170, function(enabled)
+makeToggle(vFrame, "No Fog", 290, function(enabled)
 	if enabled then
 		Lighting.FogEnd = 100000
 		Lighting.FogStart = 100000

@@ -20,6 +20,21 @@ local TweenService = game:GetService("TweenService")
 local PhysicsService = game:GetService("PhysicsService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+local settingsEnvironment = _G
+pcall(function()
+	if type(getgenv) == "function" then settingsEnvironment = getgenv() end
+end)
+local interfaceSettings = settingsEnvironment.LuaToolkitInterfaceSettings or {}
+if type(readfile) == "function" and type(isfile) == "function" then
+	pcall(function()
+		if isfile("LuaToolkitInterfaceSettings.json") then
+			interfaceSettings = HttpService:JSONDecode(readfile("LuaToolkitInterfaceSettings.json"))
+		end
+	end)
+end
+if type(interfaceSettings) ~= "table" then interfaceSettings = {} end
+interfaceSettings.OpenKey = interfaceSettings.OpenKey or "RightShift"
+interfaceSettings.Accent = interfaceSettings.Accent or "Green"
 
 -- Drawing API check (MUST be at top)
 local Drawing = Drawing or nil
@@ -41,6 +56,13 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 720, 0, 560)
 frame.Position = UDim2.new(0.5, -360, 0.5, -280)
+if type(interfaceSettings.WindowSize) == "table" then
+	frame.Size = UDim2.new(0, math.clamp(interfaceSettings.WindowSize[1] or 720, 560, 1200), 0, math.clamp(interfaceSettings.WindowSize[2] or 560, 420, 900))
+end
+if type(interfaceSettings.WindowPosition) == "table" then
+	frame.Position = UDim2.new(interfaceSettings.WindowPosition[1] or 0.5, interfaceSettings.WindowPosition[2] or -360,
+		interfaceSettings.WindowPosition[3] or 0.5, interfaceSettings.WindowPosition[4] or -280)
+end
 frame.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
 frame.BorderSizePixel = 0
 frame.Active = true
@@ -50,7 +72,7 @@ frame.Parent = gui
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -210, 0, 28)
+title.Size = UDim2.new(0, 370, 0, 28)
 title.Text = "Ultimate Toolkit v5++"
 title.TextColor3 = Color3.fromRGB(0, 255, 130)
 title.BackgroundTransparency = 1
@@ -83,7 +105,7 @@ minimizeButton.Parent = frame
 local updateButton = Instance.new("TextButton")
 updateButton.Name = "UpdateButton"
 updateButton.Size = UDim2.new(0, 54, 0, 22)
-updateButton.Position = UDim2.new(1, -120, 0, 3)
+updateButton.Position = UDim2.new(1, -192, 0, 3)
 updateButton.Text = "Update"
 updateButton.TextColor3 = Color3.new(1, 1, 1)
 updateButton.BackgroundColor3 = Color3.fromRGB(30, 100, 65)
@@ -93,11 +115,91 @@ updateButton.Parent = frame
 Instance.new("UICorner", updateButton).CornerRadius = UDim.new(0, 4)
 
 local expandedSize = frame.Size
+local expandedPosition = frame.Position
 local minimized = false
+local maximized = false
 minimizeButton.MouseButton1Click:Connect(function()
+	if not minimized then
+		expandedSize = frame.Size
+		expandedPosition = frame.Position
+	end
 	minimized = not minimized
 	frame.Size = minimized and UDim2.new(expandedSize.X.Scale, expandedSize.X.Offset, 0, 28) or expandedSize
 	minimizeButton.Text = minimized and "+" or "-"
+end)
+
+local maximizeButton = Instance.new("TextButton")
+maximizeButton.Name = "MaximizeButton"
+maximizeButton.Size = UDim2.new(0, 28, 0, 28)
+maximizeButton.Position = UDim2.new(1, -94, 0, 0)
+maximizeButton.Text = "□"
+maximizeButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+maximizeButton.BackgroundTransparency = 1
+maximizeButton.Font = Enum.Font.GothamBold
+maximizeButton.TextSize = 13
+maximizeButton.Parent = frame
+maximizeButton.MouseButton1Click:Connect(function()
+	if minimized then
+		minimized = false
+		minimizeButton.Text = "-"
+	end
+	if not maximized then
+		expandedSize = frame.Size
+		expandedPosition = frame.Position
+		frame.Size = UDim2.new(1, -24, 1, -24)
+		frame.Position = UDim2.new(0, 12, 0, 12)
+		maximized = true
+	else
+		frame.Size = expandedSize
+		frame.Position = expandedPosition
+		maximized = false
+	end
+end)
+
+local hideButton = Instance.new("TextButton")
+hideButton.Name = "HideButton"
+hideButton.Size = UDim2.new(0, 36, 0, 22)
+hideButton.Position = UDim2.new(1, -136, 0, 3)
+hideButton.Text = "Hide"
+hideButton.TextColor3 = Color3.new(1, 1, 1)
+hideButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+hideButton.Font = Enum.Font.GothamBold
+hideButton.TextSize = 9
+hideButton.Parent = frame
+Instance.new("UICorner", hideButton).CornerRadius = UDim.new(0, 4)
+
+local resizeGrip = Instance.new("TextButton")
+resizeGrip.Name = "ResizeGrip"
+resizeGrip.Size = UDim2.new(0, 18, 0, 18)
+resizeGrip.Position = UDim2.new(1, -19, 1, -19)
+resizeGrip.Text = "↘"
+resizeGrip.TextColor3 = Color3.fromRGB(160, 160, 170)
+resizeGrip.BackgroundColor3 = Color3.fromRGB(30, 30, 34)
+resizeGrip.Font = Enum.Font.GothamBold
+resizeGrip.TextSize = 12
+resizeGrip.ZIndex = 10
+resizeGrip.Parent = frame
+
+local resizeActive = false
+local resizeStart
+local resizeSize
+resizeGrip.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		resizeActive = true
+		resizeStart = input.Position
+		resizeSize = frame.AbsoluteSize
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if resizeActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - resizeStart
+		frame.Size = UDim2.new(0, math.clamp(resizeSize.X + delta.X, 560, 1200), 0, math.clamp(resizeSize.Y + delta.Y, 420, 900))
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		resizeActive = false
+	end
 end)
 
 updateButton.MouseButton1Click:Connect(function()
@@ -105,6 +207,46 @@ updateButton.MouseButton1Click:Connect(function()
 		UT.updateToolkit()
 	end
 end)
+
+hideButton.MouseButton1Click:Connect(function()
+	frame.Visible = false
+end)
+
+local keybindButton = Instance.new("TextButton")
+keybindButton.Name = "OpenKeybindButton"
+keybindButton.Size = UDim2.new(0, 42, 0, 22)
+keybindButton.Position = UDim2.new(1, -340, 0, 3)
+keybindButton.Text = "Key"
+keybindButton.TextColor3 = Color3.new(1, 1, 1)
+keybindButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+keybindButton.Font = Enum.Font.GothamBold
+keybindButton.TextSize = 9
+keybindButton.Parent = frame
+Instance.new("UICorner", keybindButton).CornerRadius = UDim.new(0, 4)
+
+local accentButton = Instance.new("TextButton")
+accentButton.Name = "AccentButton"
+accentButton.Size = UDim2.new(0, 44, 0, 22)
+accentButton.Position = UDim2.new(1, -294, 0, 3)
+accentButton.Text = "Theme"
+accentButton.TextColor3 = Color3.new(1, 1, 1)
+accentButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+accentButton.Font = Enum.Font.GothamBold
+accentButton.TextSize = 9
+accentButton.Parent = frame
+Instance.new("UICorner", accentButton).CornerRadius = UDim.new(0, 4)
+
+local saveButton = Instance.new("TextButton")
+saveButton.Name = "SaveSettingsButton"
+saveButton.Size = UDim2.new(0, 50, 0, 22)
+saveButton.Position = UDim2.new(1, -242, 0, 3)
+saveButton.Text = "Save"
+saveButton.TextColor3 = Color3.new(1, 1, 1)
+saveButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+saveButton.Font = Enum.Font.GothamBold
+saveButton.TextSize = 9
+saveButton.Parent = frame
+Instance.new("UICorner", saveButton).CornerRadius = UDim.new(0, 4)
 
 local tabColors = {
 	Remotes = Color3.fromRGB(180, 30, 30),
@@ -124,6 +266,9 @@ local tabFrames = {}
 local currentTab = "Remotes"
 local loadedTabs = {}
 local categoryDropdown
+local searchBox
+local loadingFill
+local accentColor = Color3.fromRGB(0, 220, 130)
 local tabForModule = {
 	["tab_remotes.lua"] = "Remotes",
 	["tab_items.lua"] = "Items",
@@ -186,18 +331,41 @@ local function switchTab(name)
 	if not loadedTabs[name] then return end
 	currentTab = name
 	for n, c in pairs(tabFrames) do c.Visible = (n == name) end
-	for n, b in pairs(tabBtns) do b.BackgroundColor3 = (n == name) and tabColors[n] or Color3.fromRGB(35,35,40) end
+	for n, b in pairs(tabBtns) do b.BackgroundColor3 = (n == name) and accentColor or Color3.fromRGB(35,35,40) end
 end
 
-local tabWidth = 76
-local tabStride = 78
+local tabWidth = 60
+local tabStride = 64
+local featureKeywords = {
+	Remotes = "remote scanner network event",
+	Items = "item inventory save grab search",
+	Players = "player list spectate health position userid",
+	Move = "movement speed walk jump fly noclip",
+	Entities = "npc entity enemy esp",
+	Visuals = "player highlight name distance tracer xray fog",
+	Misc = "utility farm clicker magnet lag",
+	Map = "map minimap interactable waypoint scan",
+	Bring = "bring item range",
+}
+local accentPresets = {
+	Green = Color3.fromRGB(0, 220, 130),
+	Blue = Color3.fromRGB(60, 170, 255),
+	Orange = Color3.fromRGB(255, 145, 55),
+}
+local accentNames = {"Green", "Blue", "Orange"}
+accentColor = accentPresets[interfaceSettings.Accent] or accentPresets.Green
+local function tabMatchesSearch(tabName, query)
+	if query == "" then return true end
+	return (tabName .. " " .. (featureKeywords[tabName] or "")):lower():find(query, 1, true) ~= nil
+end
+
 for i, name in ipairs(tabList) do
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(0, tabWidth, 0, 24)
-	btn.Position = UDim2.new(0, 5 + (i - 1) * tabStride, 0, 30)
+	btn.Position = UDim2.new(0, 130 + (i - 1) * tabStride, 0, 30)
 	btn.Text = name
 	btn.TextColor3 = Color3.new(1,1,1)
-	btn.BackgroundColor3 = (name == currentTab) and tabColors[name] or Color3.fromRGB(35, 35, 40)
+	btn.BackgroundColor3 = (name == currentTab) and accentColor or Color3.fromRGB(35, 35, 40)
 	btn.Font = Enum.Font.GothamBold
 	btn.TextSize = 11
 	btn.Visible = false
@@ -215,6 +383,94 @@ for i, name in ipairs(tabList) do
 		switchTab(name)
 	end)
 end
+
+searchBox = Instance.new("TextBox")
+searchBox.Name = "FeatureSearch"
+searchBox.Size = UDim2.new(0, 122, 0, 24)
+searchBox.Position = UDim2.new(0, 5, 0, 30)
+searchBox.PlaceholderText = "Search features..."
+searchBox.Text = ""
+searchBox.TextColor3 = Color3.new(1, 1, 1)
+searchBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 10
+searchBox.Parent = frame
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local query = searchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+	local firstMatch
+	for _, name in ipairs(tabList) do
+		local matches = tabMatchesSearch(name, query)
+		tabBtns[name].Visible = loadedTabs[name] and matches
+		if matches and loadedTabs[name] and not firstMatch then firstMatch = name end
+	end
+	if firstMatch and query ~= "" then switchTab(firstMatch) end
+end)
+
+local accentIndex = table.find(accentNames, interfaceSettings.Accent) or 1
+local function applyAccent(name)
+	accentColor = accentPresets[name] or accentPresets.Green
+	interfaceSettings.Accent = name
+	title.TextColor3 = accentColor
+	accentButton.Text = name
+	for tabName, button in pairs(tabBtns) do
+		button.BackgroundColor3 = tabName == currentTab and accentColor or Color3.fromRGB(35, 35, 40)
+	end
+	if loadingFill then loadingFill.BackgroundColor3 = accentColor end
+end
+
+accentButton.MouseButton1Click:Connect(function()
+	accentIndex = accentIndex % #accentNames + 1
+	applyAccent(accentNames[accentIndex])
+end)
+applyAccent(accentNames[accentIndex])
+
+UT.saveInterfaceSettings = function()
+	interfaceSettings.WindowSize = {frame.AbsoluteSize.X, frame.AbsoluteSize.Y}
+	interfaceSettings.WindowPosition = {
+		frame.Position.X.Scale, frame.Position.X.Offset,
+		frame.Position.Y.Scale, frame.Position.Y.Offset,
+	}
+	pcall(function() settingsEnvironment.LuaToolkitInterfaceSettings = interfaceSettings end)
+	if type(writefile) == "function" then
+		pcall(function()
+			writefile("LuaToolkitInterfaceSettings.json", HttpService:JSONEncode(interfaceSettings))
+		end)
+	end
+	saveButton.Text = "Saved"
+	task.delay(1.2, function()
+		if saveButton.Parent then saveButton.Text = "Save" end
+	end)
+end
+
+saveButton.MouseButton1Click:Connect(UT.saveInterfaceSettings)
+
+local waitingForOpenKey = false
+keybindButton.Text = "Bind"
+keybindButton.MouseButton1Click:Connect(function()
+	waitingForOpenKey = true
+	keybindButton.Text = "Press key"
+end)
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	if waitingForOpenKey then
+		if input.KeyCode ~= Enum.KeyCode.Unknown then
+			interfaceSettings.OpenKey = input.KeyCode.Name
+			waitingForOpenKey = false
+			keybindButton.Text = input.KeyCode.Name
+		end
+		return
+	end
+	if input.KeyCode.Name == interfaceSettings.OpenKey then
+		frame.Visible = not frame.Visible
+		if frame.Visible and minimized then
+			minimized = false
+			frame.Size = expandedSize
+			minimizeButton.Text = "-"
+		end
+	end
+end)
 
 local loadingPanel = Instance.new("Frame")
 loadingPanel.Size = UDim2.new(1, -10, 1, -64)
@@ -244,7 +500,7 @@ loadingTrack.ZIndex = 101
 loadingTrack.Parent = loadingPanel
 Instance.new("UICorner", loadingTrack).CornerRadius = UDim.new(0, 4)
 
-local loadingFill = Instance.new("Frame")
+loadingFill = Instance.new("Frame")
 loadingFill.Size = UDim2.new(0, 0, 1, 0)
 loadingFill.BackgroundColor3 = Color3.fromRGB(0, 200, 120)
 loadingFill.BorderSizePixel = 0
@@ -264,7 +520,8 @@ UT.markModuleLoaded = function(name, index, total)
 	local tabName = tabForModule[name]
 	if tabName and tabBtns[tabName] then
 		loadedTabs[tabName] = true
-		tabBtns[tabName].Visible = true
+		local query = searchBox and searchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "") or ""
+		tabBtns[tabName].Visible = tabMatchesSearch(tabName, query)
 		if not currentTab or not loadedTabs[currentTab] then
 			currentTab = tabName
 		end
