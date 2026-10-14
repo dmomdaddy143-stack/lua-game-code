@@ -43,6 +43,10 @@ UT.shutdown = function()
 	if UT.statsConn then UT.statsConn:Disconnect() end
 	if UT.statsCharacterConn then UT.statsCharacterConn:Disconnect() end
 	if UT.statsCharacterRemovingConn then UT.statsCharacterRemovingConn:Disconnect() end
+	if UT.physicsMonitorConn then UT.physicsMonitorConn:Disconnect() end
+	if UT.physicsCharacterAddedConn then UT.physicsCharacterAddedConn:Disconnect() end
+	if UT.physicsCharacterRemovingConn then UT.physicsCharacterRemovingConn:Disconnect() end
+	if UT.physicsTeleportConn then UT.physicsTeleportConn:Disconnect() end
 	if UT.playerInfoConn then UT.playerInfoConn:Disconnect() end
 	if UT.cframeSpeedConn then UT.cframeSpeedConn:Disconnect() end
 	if UT.flyConn then UT.flyConn:Disconnect() end
@@ -58,6 +62,7 @@ UT.shutdown = function()
 	if UT.magnetConn then UT.magnetConn:Disconnect() end
 	if UT.spectateConn then UT.spectateConn:Disconnect() end
 	UT.lagSpikeOn = false
+	UT.physicsThrottleActive = false
 	if UT.clearNoclip then UT.clearNoclip() end
 	resetAllToggles()
 	for plr, objs in pairs(UT.drawings or {}) do

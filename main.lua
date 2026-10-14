@@ -19,10 +19,13 @@ local FILES = {
 	"tab_misc.lua",
 	"tab_map.lua",
 	"tab_bring.lua",
+	"tab_security.lua",
+	"tab_physics.lua",
 	"cleanup.lua",
 }
 
 local UT = {}
+UT.moduleSources = {}
 local TOOLKIT_VERSION = "v5.1"
 local CACHE_BUSTER = tostring(os.time()) .. "-" .. tostring(math.random(1, 1000000000))
 local loaderReady = false
@@ -43,6 +46,8 @@ local tabModules = {
 	{"tab_misc.lua", "Misc"},
 	{"tab_map.lua", "Map"},
 	{"tab_bring.lua", "Bring"},
+	{"tab_security.lua", "Security"},
+	{"tab_physics.lua", "Physics"},
 }
 
 local UserInputService = game:GetService("UserInputService")
@@ -137,10 +142,14 @@ local function showBootPicker(loadedModules)
 	local potatoButton = makeModeButton("Potato mode: OFF", 194)
 	potatoButton.BackgroundColor3 = Color3.fromRGB(38, 38, 44)
 
-	local list = Instance.new("Frame")
+	local list = Instance.new("ScrollingFrame")
 	list.Size = UDim2.new(1, -24, 0, 270)
 	list.Position = UDim2.new(0, 12, 0, 96)
 	list.BackgroundTransparency = 1
+	list.BorderSizePixel = 0
+	list.ScrollBarThickness = 4
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.CanvasSize = UDim2.new(0, 0, 0, 0)
 	list.Parent = panel
 
 	local layout = Instance.new("UIListLayout")
@@ -339,6 +348,7 @@ for index, name in ipairs(FILES) do
 		end
 		local ok, err = pcall(function()
 			local src = fetchSource(name)
+			UT.moduleSources[name] = src
 			local chunk, loadErr = loadstring(src, name)
 			if not chunk then error("SYNTAX: " .. tostring(loadErr)) end
 			chunk(UT)

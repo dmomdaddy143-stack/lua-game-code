@@ -13,6 +13,8 @@ FILES
   tab_misc.lua      - Misc tab + lag spike
   tab_map.lua       - Map/minimap tab + interactables
   tab_bring.lua     - Bring tab + target, item whitelist, and range controls
+  tab_security.lua  - static audit of loaded source for external dependencies
+  tab_physics.lua   - local latency monitor + adaptive toolkit scan throttling
   cleanup.lua       - render loops + X button teardown (ALWAYS loads last)
 
 SETUP (GitHub)

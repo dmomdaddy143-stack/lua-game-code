@@ -258,9 +258,11 @@ local tabColors = {
 	Misc = Color3.fromRGB(0, 200, 200),
 	Map = Color3.fromRGB(255, 100, 255),
 	Bring = Color3.fromRGB(90, 170, 100),
+	Security = Color3.fromRGB(235, 165, 60),
+	Physics = Color3.fromRGB(70, 190, 190),
 }
 
-local tabList = {"Remotes", "Items", "Players", "Move", "Entities", "Visuals", "Misc", "Map", "Bring"}
+local tabList = {"Remotes", "Items", "Players", "Move", "Entities", "Visuals", "Misc", "Map", "Bring", "Security", "Physics"}
 local tabBtns = {}
 local tabFrames = {}
 local currentTab = "Remotes"
@@ -279,6 +281,8 @@ local tabForModule = {
 	["tab_misc.lua"] = "Misc",
 	["tab_map.lua"] = "Map",
 	["tab_bring.lua"] = "Bring",
+	["tab_security.lua"] = "Security",
+	["tab_physics.lua"] = "Physics",
 }
 
 -- Low Lag Mode: scans yield across frames + capped results
@@ -294,25 +298,34 @@ local LL_REMOTE_CAP = 250
 local LL_ITEM_CAP = 250
 local LL_ENTITY_CAP = 200
 local function lagYield()
-	if UT.lowLagMode then RunService.Heartbeat:Wait() end
+	if UT.lowLagMode or UT.physicsThrottleActive then RunService.Heartbeat:Wait() end
 end
 local function llYieldStep()
+	if UT.physicsThrottleActive then return 100 end
 	return UT.laggyPotatoMode and 500 or (UT.potatoMode and 250 or 1000)
 end
 local function llBtnStep()
+	if UT.physicsThrottleActive then return 8 end
 	return UT.laggyPotatoMode and 15 or (UT.potatoMode and 10 or 25)
 end
 local function llCap(n)
-	if UT.laggyPotatoMode then
-		return math.max(25, math.floor(n / 5))
+	local cap = math.huge
+	if UT.lowLagMode then
+		cap = UT.potatoMode and math.max(25, math.floor(n / 3)) or n
 	end
-	return UT.lowLagMode and (UT.potatoMode and math.max(25, math.floor(n / 3)) or n) or math.huge
+	if UT.laggyPotatoMode then
+		cap = math.min(cap, math.max(25, math.floor(n / 5)))
+	end
+	if UT.physicsThrottleActive then
+		cap = math.min(cap, math.max(25, math.floor(n / 2)))
+	end
+	return cap
 end
 
 local function forEachDescendant(root, callback)
 	local stack = root:GetChildren()
 	local processed = 0
-	local yieldEvery = UT.laggyPotatoMode and 300 or (UT.safeMode and 75 or (UT.potatoMode and 150 or 500))
+	local yieldEvery = UT.physicsThrottleActive and 150 or (UT.laggyPotatoMode and 300 or (UT.safeMode and 75 or (UT.potatoMode and 150 or 500)))
 	while #stack > 0 do
 		if UT.cancelHeavyWork then return processed, false end
 		local instance = stack[#stack]
@@ -338,8 +351,8 @@ local function switchTab(name)
 	for n, b in pairs(tabBtns) do b.BackgroundColor3 = (n == name) and accentColor or Color3.fromRGB(35,35,40) end
 end
 
-local tabWidth = 60
-local tabStride = 64
+local tabWidth = 50
+local tabStride = 52
 local featureKeywords = {
 	Remotes = "remote scanner network event",
 	Items = "item inventory save grab search",
