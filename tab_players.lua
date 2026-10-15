@@ -432,6 +432,149 @@ local iLayout2 = Instance.new("UIListLayout")
 iLayout2.Padding = UDim.new(0, 2)
 iLayout2.Parent = iScroll2
 
+local roleScanTitle = Instance.new("TextLabel")
+roleScanTitle.Size = UDim2.new(0, 304, 0, 18)
+roleScanTitle.Position = UDim2.new(0, 404, 0, 100)
+roleScanTitle.BackgroundTransparency = 1
+roleScanTitle.Text = "Role Scanner | Visible Tools"
+roleScanTitle.TextColor3 = Color3.fromRGB(0, 220, 155)
+roleScanTitle.Font = Enum.Font.GothamBold
+roleScanTitle.TextSize = 11
+roleScanTitle.TextXAlignment = Enum.TextXAlignment.Left
+roleScanTitle.Parent = pFrame
+
+local roleScanStatus = Instance.new("TextLabel")
+roleScanStatus.Size = UDim2.new(0, 178, 0, 20)
+roleScanStatus.Position = UDim2.new(0, 404, 0, 120)
+roleScanStatus.BackgroundTransparency = 1
+roleScanStatus.Text = "Waiting for scan"
+roleScanStatus.TextColor3 = Color3.fromRGB(175, 175, 182)
+roleScanStatus.Font = Enum.Font.Gotham
+roleScanStatus.TextSize = 9
+roleScanStatus.TextXAlignment = Enum.TextXAlignment.Left
+roleScanStatus.Parent = pFrame
+
+local roleScanButton = Instance.new("TextButton")
+roleScanButton.Size = UDim2.new(0, 62, 0, 20)
+roleScanButton.Position = UDim2.new(0, 584, 0, 120)
+roleScanButton.Text = "Pause"
+roleScanButton.TextColor3 = Color3.new(1, 1, 1)
+roleScanButton.BackgroundColor3 = Color3.fromRGB(45, 65, 55)
+roleScanButton.Font = Enum.Font.GothamBold
+roleScanButton.TextSize = 9
+roleScanButton.Parent = pFrame
+Instance.new("UICorner", roleScanButton).CornerRadius = UDim.new(0, 3)
+
+local roleRefreshButton = Instance.new("TextButton")
+roleRefreshButton.Size = UDim2.new(0, 56, 0, 20)
+roleRefreshButton.Position = UDim2.new(0, 650, 0, 120)
+roleRefreshButton.Text = "Refresh"
+roleRefreshButton.TextColor3 = Color3.new(1, 1, 1)
+roleRefreshButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+roleRefreshButton.Font = Enum.Font.GothamBold
+roleRefreshButton.TextSize = 8
+roleRefreshButton.Parent = pFrame
+Instance.new("UICorner", roleRefreshButton).CornerRadius = UDim.new(0, 3)
+
+local roleScanList = Instance.new("ScrollingFrame")
+roleScanList.Name = "RoleScanResults"
+roleScanList.Size = UDim2.new(0, 304, 1, -160)
+roleScanList.Position = UDim2.new(0, 404, 0, 144)
+roleScanList.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+roleScanList.BorderSizePixel = 0
+roleScanList.ScrollBarThickness = 4
+roleScanList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+roleScanList.CanvasSize = UDim2.new(0, 0, 0, 0)
+roleScanList.Parent = pFrame
+Instance.new("UICorner", roleScanList).CornerRadius = UDim.new(0, 4)
+
+local roleScanLayout = Instance.new("UIListLayout")
+roleScanLayout.Padding = UDim.new(0, 3)
+roleScanLayout.SortOrder = Enum.SortOrder.LayoutOrder
+roleScanLayout.Parent = roleScanList
+
+local roleScanEnabled = true
+local roleScanElapsed = 2
+local roleScanRows = {}
+
+local function scanVisibleTools(targetPlayer)
+	local items = {}
+	local character = targetPlayer.Character
+	local backpack = targetPlayer:FindFirstChildOfClass("Backpack")
+	local function scanContainer(container)
+		if container then
+			for _, item in ipairs(container:GetChildren()) do
+				if item:IsA("Tool") then table.insert(items, item.Name) end
+			end
+		end
+	end
+	scanContainer(character)
+	scanContainer(backpack)
+	return items
+end
+
+local function guessRole(items)
+	for _, itemName in ipairs(items) do
+		local name = itemName:lower()
+		if name:find("knife", 1, true) or name:find("cuchillo", 1, true) or name:find("blade", 1, true) then
+			return "Possible Killer"
+		end
+	end
+	for _, itemName in ipairs(items) do
+		local name = itemName:lower()
+		if name:find("gun", 1, true) or name:find("pistol", 1, true) or name:find("revolver", 1, true) then
+			return "Possible Sheriff"
+		end
+	end
+	return "Unknown"
+end
+
+local function refreshRoleScan()
+	for _, row in ipairs(roleScanRows) do
+		if row.Parent then row:Destroy() end
+	end
+	roleScanRows = {}
+	local playerCount = 0
+	for _, targetPlayer in ipairs(Players:GetPlayers()) do
+		local items = scanVisibleTools(targetPlayer)
+		local itemText = #items > 0 and table.concat(items, ", ") or "No visible tools"
+		local row = Instance.new("TextLabel")
+		row.Name = string.format("%03d_%s", targetPlayer.UserId % 1000, targetPlayer.Name)
+		row.Size = UDim2.new(1, -8, 0, 54)
+		row.BackgroundColor3 = Color3.fromRGB(30, 33, 40)
+		row.BorderSizePixel = 0
+		row.TextColor3 = Color3.fromRGB(225, 230, 238)
+		row.Font = Enum.Font.Gotham
+		row.TextSize = 9
+		row.TextXAlignment = Enum.TextXAlignment.Left
+		row.TextYAlignment = Enum.TextYAlignment.Center
+		row.TextWrapped = true
+		row.LayoutOrder = playerCount
+		row.Text = string.format("  %s | %s\n  Tools: %s", targetPlayer.Name, guessRole(items), itemText)
+		row.Parent = roleScanList
+		table.insert(roleScanRows, row)
+		playerCount = playerCount + 1
+	end
+	roleScanStatus.Text = string.format("Players: %d | guesses from visible tools", playerCount)
+end
+
+roleScanButton.MouseButton1Click:Connect(function()
+	roleScanEnabled = not roleScanEnabled
+	roleScanButton.Text = roleScanEnabled and "Pause" or "Resume"
+	roleScanButton.BackgroundColor3 = roleScanEnabled and Color3.fromRGB(45, 65, 55) or Color3.fromRGB(75, 52, 38)
+	if roleScanEnabled then refreshRoleScan() end
+end)
+roleRefreshButton.MouseButton1Click:Connect(refreshRoleScan)
+refreshRoleScan()
+UT.roleScanConn = RunService.Heartbeat:Connect(function(deltaTime)
+	if not roleScanEnabled then return end
+	roleScanElapsed = roleScanElapsed + deltaTime
+	if roleScanElapsed >= 2 then
+		roleScanElapsed = 0
+		refreshRoleScan()
+	end
+end)
+
 local p2Buttons = {}
 local i2Buttons = {}
 

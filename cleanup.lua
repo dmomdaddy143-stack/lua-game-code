@@ -48,6 +48,7 @@ UT.shutdown = function()
 	if UT.physicsCharacterRemovingConn then UT.physicsCharacterRemovingConn:Disconnect() end
 	if UT.physicsTeleportConn then UT.physicsTeleportConn:Disconnect() end
 	if UT.playerInfoConn then UT.playerInfoConn:Disconnect() end
+	if UT.roleScanConn then UT.roleScanConn:Disconnect() end
 	if UT.cframeSpeedConn then UT.cframeSpeedConn:Disconnect() end
 	if UT.flyConn then UT.flyConn:Disconnect() end
 	if UT.autoFarmConn then UT.autoFarmConn:Disconnect() end
