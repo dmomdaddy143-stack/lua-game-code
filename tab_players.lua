@@ -26,6 +26,89 @@ local llCap = UT.llCap
 -- PLAYERS TAB
 -- ============================================
 local pFrame = tabFrames.Players
+local markedPlayers = {}
+local playerMarkColors = {
+	Color3.fromRGB(255, 90, 90),
+	Color3.fromRGB(80, 190, 255),
+	Color3.fromRGB(255, 190, 70),
+	Color3.fromRGB(170, 110, 255),
+	Color3.fromRGB(80, 235, 160),
+	Color3.fromRGB(255, 110, 210),
+}
+local nextMarkColor = 0
+local nearAlertEnabled = false
+local nearAlertDistance = 50
+local nearAlertElapsed = 0
+local nearAlertInside = {}
+UT.playerMarkColors = {}
+
+local function attachPlayerMark(target, record, character)
+	if record.highlight then record.highlight:Destroy(); record.highlight = nil end
+	if record.billboard then record.billboard:Destroy(); record.billboard = nil end
+	if not character or not character.Parent then return end
+	local adornee = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not adornee then return end
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "ToolkitPlayerMark"
+	highlight.Adornee = character
+	highlight.FillColor = record.color
+	highlight.FillTransparency = 0.72
+	highlight.OutlineColor = record.color
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = character
+	record.highlight = highlight
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ToolkitPlayerNameMark"
+	billboard.Adornee = adornee
+	billboard.Size = UDim2.new(0, 180, 0, 26)
+	billboard.StudsOffset = Vector3.new(0, 2.8, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = gui
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = target.DisplayName .. "  [" .. target.Name .. "]"
+	label.TextColor3 = record.color
+	label.TextStrokeTransparency = 0.2
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 12
+	label.Parent = billboard
+	record.billboard = billboard
+end
+
+local function setPlayerMarked(target, enabled)
+	local record = markedPlayers[target]
+	if enabled and not record then
+		nextMarkColor = nextMarkColor % #playerMarkColors + 1
+		record = {color = playerMarkColors[nextMarkColor]}
+		markedPlayers[target] = record
+		UT.playerMarkColors[target] = record.color
+		record.characterConn = target.CharacterAdded:Connect(function(character)
+			task.defer(function()
+				if markedPlayers[target] == record then attachPlayerMark(target, record, character) end
+			end)
+		end)
+		attachPlayerMark(target, record, target.Character)
+	elseif not enabled and record then
+		if record.characterConn then record.characterConn:Disconnect() end
+		if record.highlight then record.highlight:Destroy() end
+		if record.billboard then record.billboard:Destroy() end
+		markedPlayers[target] = nil
+		UT.playerMarkColors[target] = nil
+		nearAlertInside[target] = nil
+	end
+	return record
+end
+
+local function clearPlayerMark(target)
+	setPlayerMarked(target, false)
+end
+
+UT.cleanupPlayerMarks = function()
+	for target in pairs(markedPlayers) do
+		setPlayerMarked(target, false)
+	end
+end
 
 -- Spectate controls
 local spectateTarget = nil
@@ -437,11 +520,39 @@ roleScanTitle.Size = UDim2.new(0, 304, 0, 18)
 roleScanTitle.Position = UDim2.new(0, 404, 0, 100)
 roleScanTitle.BackgroundTransparency = 1
 roleScanTitle.Text = "Role Scanner | Visible Tools"
+roleScanTitle.Size = UDim2.new(0, 108, 0, 18)
 roleScanTitle.TextColor3 = Color3.fromRGB(0, 220, 155)
 roleScanTitle.Font = Enum.Font.GothamBold
 roleScanTitle.TextSize = 11
 roleScanTitle.TextXAlignment = Enum.TextXAlignment.Left
 roleScanTitle.Parent = pFrame
+
+local nearAlertButton = Instance.new("TextButton")
+nearAlertButton.Size = UDim2.new(0, 82, 0, 20)
+nearAlertButton.Position = UDim2.new(0, 514, 0, 100)
+nearAlertButton.Text = "Alert: OFF"
+nearAlertButton.TextColor3 = Color3.new(1, 1, 1)
+nearAlertButton.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+nearAlertButton.Font = Enum.Font.GothamBold
+nearAlertButton.TextSize = 8
+nearAlertButton.Parent = pFrame
+Instance.new("UICorner", nearAlertButton).CornerRadius = UDim.new(0, 3)
+
+local nearAlertRange = Instance.new("TextBox")
+nearAlertRange.Size = UDim2.new(0, 108, 0, 20)
+nearAlertRange.Position = UDim2.new(0, 600, 0, 100)
+nearAlertRange.PlaceholderText = "Range"
+nearAlertRange.Text = "50"
+nearAlertRange.TextColor3 = Color3.new(1, 1, 1)
+nearAlertRange.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+nearAlertRange.Font = Enum.Font.Gotham
+nearAlertRange.TextSize = 9
+nearAlertRange.Parent = pFrame
+Instance.new("UICorner", nearAlertRange).CornerRadius = UDim.new(0, 3)
+if type(UT.addTooltip) == "function" then
+	UT.addTooltip(nearAlertButton, "Alert once when a marked player enters the chosen distance.")
+	UT.addTooltip(nearAlertRange, "Alert distance in studs for marked players.")
+end
 
 local roleScanStatus = Instance.new("TextLabel")
 roleScanStatus.Size = UDim2.new(0, 178, 0, 20)
@@ -566,12 +677,36 @@ roleScanButton.MouseButton1Click:Connect(function()
 end)
 roleRefreshButton.MouseButton1Click:Connect(refreshRoleScan)
 refreshRoleScan()
+nearAlertButton.MouseButton1Click:Connect(function()
+	nearAlertEnabled = not nearAlertEnabled
+	nearAlertButton.Text = nearAlertEnabled and "Alert: ON" or "Alert: OFF"
+	nearAlertButton.BackgroundColor3 = nearAlertEnabled and Color3.fromRGB(0, 115, 78) or Color3.fromRGB(45, 45, 52)
+	if not nearAlertEnabled then nearAlertInside = {} end
+end)
 UT.roleScanConn = RunService.Heartbeat:Connect(function(deltaTime)
-	if not roleScanEnabled then return end
-	roleScanElapsed = roleScanElapsed + deltaTime
-	if roleScanElapsed >= 2 then
-		roleScanElapsed = 0
-		refreshRoleScan()
+	if nearAlertEnabled then
+		nearAlertElapsed = nearAlertElapsed + deltaTime
+		if nearAlertElapsed >= 0.25 then
+			nearAlertElapsed = 0
+			local ownRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			local range = math.clamp(tonumber(nearAlertRange.Text) or 50, 5, 1000)
+			for target, record in pairs(markedPlayers) do
+				local targetRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+				local distance = ownRoot and targetRoot and (ownRoot.Position - targetRoot.Position).Magnitude
+				local isNear = distance and distance <= range
+				if isNear and not nearAlertInside[target] then
+					notify("Marked player nearby", target.Name .. " is " .. math.floor(distance) .. " studs away")
+				end
+				nearAlertInside[target] = isNear == true
+			end
+		end
+	end
+	if roleScanEnabled then
+		roleScanElapsed = roleScanElapsed + deltaTime
+		if roleScanElapsed >= 2 then
+			roleScanElapsed = 0
+			refreshRoleScan()
+		end
 	end
 end)
 
@@ -680,17 +815,17 @@ local function refreshPlrs()
 		row.Parent = pScroll2
 		table.insert(p2Buttons, row)
 		local nameBtn = Instance.new("TextButton")
-		nameBtn.Size = UDim2.new(0.68, 0, 1, 0)
+		nameBtn.Size = UDim2.new(0.47, 0, 1, 0)
 		nameBtn.Text = p.Name
-		nameBtn.TextColor3 = Color3.new(1,1,1)
+		nameBtn.TextColor3 = markedPlayers[p] and markedPlayers[p].color or Color3.new(1, 1, 1)
 		nameBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 		nameBtn.Font = Enum.Font.Gotham
 		nameBtn.TextSize = 10
 		nameBtn.Parent = row
 		Instance.new("UICorner", nameBtn).CornerRadius = UDim.new(0, 3)
 		local tpBtn = Instance.new("TextButton")
-		tpBtn.Size = UDim2.new(0.30, 0, 1, 0)
-		tpBtn.Position = UDim2.new(0.70, 0, 0, 0)
+		tpBtn.Size = UDim2.new(0.22, 0, 1, 0)
+		tpBtn.Position = UDim2.new(0.48, 0, 0, 0)
 		tpBtn.Text = "TP"
 		tpBtn.TextColor3 = Color3.fromRGB(255, 200, 0)
 		tpBtn.BackgroundColor3 = Color3.fromRGB(50, 40, 20)
@@ -698,6 +833,19 @@ local function refreshPlrs()
 		tpBtn.TextSize = 9
 		tpBtn.Parent = row
 		Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 3)
+			local markBtn = Instance.new("TextButton")
+			markBtn.Size = UDim2.new(0.27, 0, 1, 0)
+			markBtn.Position = UDim2.new(0.72, 0, 0, 0)
+			markBtn.Text = markedPlayers[p] and "Unmark" or "Mark"
+			markBtn.TextColor3 = markedPlayers[p] and markedPlayers[p].color or Color3.new(1, 1, 1)
+			markBtn.BackgroundColor3 = markedPlayers[p] and Color3.fromRGB(45, 45, 52) or Color3.fromRGB(40, 55, 68)
+			markBtn.Font = Enum.Font.GothamBold
+			markBtn.TextSize = 8
+			markBtn.Parent = row
+			Instance.new("UICorner", markBtn).CornerRadius = UDim.new(0, 3)
+			if type(UT.addTooltip) == "function" then
+				UT.addTooltip(markBtn, "Mark this player with a distinct color and name tag.")
+			end
 		nameBtn.MouseButton1Click:Connect(function()
 			selectedPlayerName = p.Name
 			selectedPlayer = p
@@ -721,11 +869,21 @@ local function refreshPlrs()
 				notify("TP", p.Name .. " has no character")
 			end
 		end)
+		markBtn.MouseButton1Click:Connect(function()
+			local enabled = markedPlayers[p] == nil
+			local record = setPlayerMarked(p, enabled)
+			markBtn.Text = enabled and "Unmark" or "Mark"
+			markBtn.TextColor3 = enabled and record.color or Color3.new(1, 1, 1)
+			markBtn.BackgroundColor3 = enabled and Color3.fromRGB(45, 45, 52) or Color3.fromRGB(40, 55, 68)
+			nameBtn.TextColor3 = enabled and record.color or Color3.new(1, 1, 1)
+		end)
 	end
 end
 
 Players.PlayerAdded:Connect(refreshPlrs)
 Players.PlayerRemoving:Connect(function(leavingPlayer)
+	clearPlayerMark(leavingPlayer)
+	nearAlertInside[leavingPlayer] = nil
 	if leavingPlayer == selectedPlayer then
 		selectedPlayer = nil
 		selectedPlayerName = nil

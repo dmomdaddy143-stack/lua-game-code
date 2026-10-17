@@ -39,6 +39,8 @@ UT.shutdown = function()
 	if UT.cleanupBring then pcall(UT.cleanupBring) end
 	if UT.cleanupMap then pcall(UT.cleanupMap) end
 	if UT.cleanupTargetPlayerEsp then pcall(UT.cleanupTargetPlayerEsp) end
+	if UT.cleanupNativePlayerEsp then pcall(UT.cleanupNativePlayerEsp) end
+	if UT.cleanupPlayerMarks then pcall(UT.cleanupPlayerMarks) end
 	if UT.espConnection then UT.espConnection:Disconnect() end
 	if UT.statsConn then UT.statsConn:Disconnect() end
 	if UT.statsCharacterConn then UT.statsCharacterConn:Disconnect() end

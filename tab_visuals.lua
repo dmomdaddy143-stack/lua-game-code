@@ -21,6 +21,7 @@ local lagYield = UT.lagYield
 local llYieldStep = UT.llYieldStep
 local llBtnStep = UT.llBtnStep
 local llCap = UT.llCap
+local drawingSupported = UT.drawingSupported
 
 -- ============================================
 -- VISUALS TAB
@@ -53,6 +54,7 @@ UT.drawings = {}
 local playerHighlightMap = {}
 local npcHighlightMap = {}
 local interactableHighlightMap = {}
+local nativePlayerEsp = {}
 
 local function ensureModelHighlight(model, color, keyMap)
 	if not model or not model.Parent then return end
@@ -72,6 +74,91 @@ local function clearHighlightMap(map)
 	for model, highlight in pairs(map) do
 		if highlight and highlight.Parent then highlight:Destroy() end
 		map[model] = nil
+	end
+end
+
+local function destroyNativePlayerEsp(plr)
+	local record = nativePlayerEsp[plr]
+	if not record then return end
+	if record.highlight then record.highlight:Destroy() end
+	if record.billboard then record.billboard:Destroy() end
+	nativePlayerEsp[plr] = nil
+end
+
+local function updateNativePlayerEsp()
+	if drawingSupported then return end
+	local enabled = espSettings.Box or espSettings.Name
+	local localRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr == player then continue end
+		local character = plr.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local head = character and character:FindFirstChild("Head") or root
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local distance = localRoot and root and (localRoot.Position - root.Position).Magnitude or math.huge
+		local visible = enabled and character and root and head and (not humanoid or humanoid.Health > 0)
+			and distance <= (espSettings.MaxRange or 250)
+			and (not espSettings.TeamCheck or plr.Team ~= player.Team)
+		local color = UT.playerMarkColors and UT.playerMarkColors[plr]
+			or Color3.fromHSV((plr.UserId % 360) / 360, 0.75, 1)
+		local record = nativePlayerEsp[plr]
+		if not visible then
+			if record then
+				if record.highlight then record.highlight.Enabled = false end
+				if record.billboard then record.billboard.Enabled = false end
+			end
+			continue
+		end
+		if not record or record.character ~= character then
+			destroyNativePlayerEsp(plr)
+			record = {character = character}
+			nativePlayerEsp[plr] = record
+		end
+		if espSettings.Box then
+			if not record.highlight then
+				record.highlight = Instance.new("Highlight")
+				record.highlight.Name = "ToolkitNativePlayerHighlight"
+				record.highlight.Adornee = character
+				record.highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				record.highlight.Parent = character
+			end
+			record.highlight.FillColor = color
+			record.highlight.OutlineColor = color
+			record.highlight.Enabled = true
+		elseif record.highlight then
+			record.highlight:Destroy()
+			record.highlight = nil
+		end
+		if espSettings.Name then
+			if not record.billboard then
+				record.billboard = Instance.new("BillboardGui")
+				record.billboard.Name = "ToolkitNativePlayerName"
+				record.billboard.Size = UDim2.new(0, 180, 0, 28)
+				record.billboard.StudsOffset = Vector3.new(0, 2.6, 0)
+				record.billboard.AlwaysOnTop = true
+				record.billboard.Parent = gui
+				local label = Instance.new("TextLabel")
+				label.Name = "NameLabel"
+				label.Size = UDim2.new(1, 0, 1, 0)
+				label.BackgroundTransparency = 1
+				label.TextStrokeTransparency = 0.25
+				label.Font = Enum.Font.GothamBold
+				label.TextSize = 12
+				label.Parent = record.billboard
+				record.label = label
+			end
+			record.billboard.Adornee = head
+			record.billboard.Enabled = true
+			record.label.Text = plr.DisplayName .. " (" .. plr.Name .. ")"
+				.. (espSettings.NameDistance and (" [" .. math.floor(distance) .. "m]") or "")
+				.. (humanoid and (" [" .. math.floor(humanoid.Health) .. "]") or "")
+			record.label.TextColor3 = color
+		else
+			if record.billboard then record.billboard:Destroy(); record.billboard = nil; record.label = nil end
+		end
+	end
+	for plr in pairs(nativePlayerEsp) do
+		if not plr.Parent then destroyNativePlayerEsp(plr) end
 	end
 end
 
@@ -116,6 +203,7 @@ local function removePlayerEsp(plr)
 end
 
 local function updatePlayerEsp()
+	updateNativePlayerEsp()
 	if not drawingSupported then return end
 	local maxRange = espSettings.MaxRange or (UT.laggyPotatoMode and 80 or UT.potatoMode and 120 or 250)
 	for plr, objs in pairs(UT.drawings) do
@@ -201,6 +289,7 @@ Players.PlayerAdded:Connect(function(plr)
 end)
 Players.PlayerRemoving:Connect(function(plr)
 	removePlayerEsp(plr)
+	destroyNativePlayerEsp(plr)
 	if playerHighlightMap[plr.Character] then
 		playerHighlightMap[plr.Character]:Destroy()
 		playerHighlightMap[plr.Character] = nil
@@ -208,26 +297,31 @@ Players.PlayerRemoving:Connect(function(plr)
 end)
 
 makeToggle(vFrame, "Box ESP", 20, function(enabled)
-	if not drawingSupported then notify("Visuals", "Drawing API not supported"); return end
 	espSettings.Box = enabled
+	updateNativePlayerEsp()
 end)
 
 makeToggle(vFrame, "Name ESP", 50, function(enabled)
-	if not drawingSupported then notify("Visuals", "Drawing API not supported"); return end
 	espSettings.Name = enabled
+	updateNativePlayerEsp()
 end)
 
 makeToggle(vFrame, "Tracer ESP", 80, function(enabled)
-	if not drawingSupported then notify("Visuals", "Drawing API not supported"); return end
+	if not drawingSupported then
+		notify("Visuals", "Tracer ESP requires the Drawing API; use Box ESP and Name ESP for native markers")
+		return
+	end
 	espSettings.Tracer = enabled
 end)
 
 makeToggle(vFrame, "Team Check", 110, function(enabled)
 	espSettings.TeamCheck = enabled
+	updateNativePlayerEsp()
 end)
 
 makeToggle(vFrame, "Names + Dist", 140, function(enabled)
 	espSettings.NameDistance = enabled
+	updateNativePlayerEsp()
 end)
 
 makeToggle(vFrame, "Highlight Players", 170, function(enabled)
@@ -518,6 +612,15 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
 end)
 
 UT.cleanupTargetPlayerEsp = clearTargetPlayerEsp
+
+UT.cleanupNativePlayerEsp = function()
+	for plr in pairs(nativePlayerEsp) do
+		destroyNativePlayerEsp(plr)
+	end
+	clearHighlightMap(playerHighlightMap)
+	clearHighlightMap(npcHighlightMap)
+	clearHighlightMap(interactableHighlightMap)
+end
 
 -- export for cleanup.lua render loop
 UT.updatePlayerEsp = updatePlayerEsp
